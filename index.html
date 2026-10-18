@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Место вместе</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%233346F0' d='M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z'/><circle cx='12' cy='9' r='2.6' fill='white'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Экран входа -->
+<section id="auth" class="auth" hidden>
+  <div class="acard">
+    <div class="abrand"><span class="logo"></span>Место вместе</div>
+    <h1 id="authTitle">Вход</h1>
+    <p class="lead">Общая карта мест, которые советуют друзья.</p>
+    <div class="switch" role="group">
+      <button type="button" data-mode="login" aria-pressed="true">Вход</button>
+      <button type="button" data-mode="signup" aria-pressed="false">Регистрация</button>
+    </div>
+    <form id="authForm" class="form" novalidate>
+      <label class="field" id="nameField" hidden><span>Имя</span>
+        <input type="text" name="name" maxlength="40" autocomplete="nickname" placeholder="Как вас зовут друзья">
+      </label>
+      <label class="field"><span>Почта</span>
+        <input type="email" name="email" required autocomplete="email" placeholder="you@mail.ru">
+      </label>
+      <label class="field"><span>Пароль</span>
+        <input type="password" name="password" required minlength="6" autocomplete="current-password" placeholder="Не меньше 6 символов">
+      </label>
+      <div class="err" id="authErr" role="alert"></div>
+      <button class="cta" type="submit" id="authBtn">Войти</button>
+    </form>
+    <p class="hint" id="serverHint"></p>
+  </div>
+</section>
+
+<!-- Приложение -->
+<div class="app" id="app" hidden>
+  <header class="top">
+    <div class="brand"><span class="logo"></span><div><b>Место вместе</b><small>карта друзей</small></div></div>
+    <button class="score" id="scoreBtn" type="button" title="Профиль">
+      <span class="av" id="meAv"></span>
+      <span><span class="n" id="mePts">0</span> <span class="r">баллов</span></span>
+    </button>
+  </header>
+
+  <main class="layout">
+    <div class="mapwrap">
+      <div id="map"></div>
+      <div class="maptools" id="filters"></div>
+      <div class="routebar" id="routebar" hidden></div>
+      <div class="addbar" id="addbar" hidden>
+        <span>Нажмите на карту, где находится место</span>
+        <button type="button" id="addHere">📍 Я здесь</button>
+        <button type="button" id="addCancel">Отмена</button>
+      </div>
+      <button class="fab" id="fab" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Добавить место
+      </button>
+    </div>
+
+    <aside class="panel">
+      <nav class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="tasks" aria-selected="true">Задания <span class="count" id="cTasks" hidden></span></button>
+        <button class="tab" role="tab" data-tab="walks" aria-selected="false">Прогулки <span class="count warn" id="cWalks" hidden></span></button>
+        <button class="tab" role="tab" data-tab="feed" aria-selected="false">Лента</button>
+        <button class="tab" role="tab" data-tab="friends" aria-selected="false">Друзья <span class="count warn" id="cReq" hidden></span></button>
+        <button class="tab" role="tab" data-tab="rating" aria-selected="false">Рейтинг</button>
+      </nav>
+      <div class="pbody" id="pbody"></div>
+    </aside>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>if (!window.L) document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">');</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+  // Запасной адрес, если jsdelivr недоступен
+  if (!window.supabase) document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
+</script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="walks.js"></script>
+</body>
+</html>
