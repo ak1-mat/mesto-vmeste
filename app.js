@@ -1,4 +1,4 @@
-/* «Место вместе» — MVP. Карта OpenStreetMap (Leaflet) + сервер Supabase на своём ПК. */
+/* «Место вместе» — карта OpenStreetMap (Leaflet) + облачный Supabase. */
 'use strict';
 
 const CFG = window.MESTO_CONFIG || {};
@@ -47,6 +47,10 @@ function ago(ts) {
   if (d < 86400 * 7) return Math.floor(d / 86400) + ' дн назад';
   return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
+function plural(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  return a > 10 && a < 20 ? many : b > 1 && b < 5 ? few : b === 1 ? one : many;
+}
 function avatar(p, cls = '') {
   if (!p) return `<span class="av ${cls}" style="background:#999">?</span>`;
   const emo = p.avatar ? ' emo' : '';
@@ -58,10 +62,12 @@ const visitOf = (placeId, userId) => S.visits.find(v => v.place_id === placeId &
 const isTask = p => p.author_id !== S.user.id && !visitOf(p.id, S.user.id);
 function errText(e) {
   const m = e?.message || String(e);
-  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Сервер не отвечает. Запущен ли Supabase (start-supabase.bat)?';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.';
   if (/Invalid login credentials/i.test(m)) return 'Неверная почта или пароль';
   if (/already registered/i.test(m)) return 'Эта почта уже зарегистрирована — войдите';
   if (/Password should be/i.test(m)) return 'Пароль слишком короткий (минимум 6 символов)';
+  if (/rate limit|too many/i.test(m)) return 'Слишком много попыток. Подождите минуту и попробуйте снова.';
+  if (/Email not confirmed/i.test(m)) return 'Почта не подтверждена. Напишите организатору сайта.';
   return m;
 }
 
@@ -93,9 +99,14 @@ async function uploadPhoto(blob) {
 
 /* ---------- Вход ---------- */
 let authMode = 'login';
+function hideBoot() { $('#boot')?.remove(); }
 function showAuth() {
+  hideBoot();
   $('#app').hidden = true; $('#auth').hidden = false;
-  $('#serverHint').textContent = 'Сервер: ' + CFG.SUPABASE_URL;
+  if (new URLSearchParams(location.search).get('invite')) {
+    $('#serverHint').textContent = 'Вас пригласил друг. Зарегистрируйтесь или войдите — и вы сразу станете друзьями.';
+    if (!store.get('mv_seen')) document.querySelector('.switch [data-mode="signup"]').click();
+  }
 }
 document.querySelectorAll('.switch button').forEach(b => b.onclick = () => {
   authMode = b.dataset.mode;
@@ -114,7 +125,7 @@ $('#authForm').onsubmit = async e => {
   if (!/^\S+@\S+\.\S+$/.test(email)) return (err.textContent = 'Введите почту');
   if (password.length < 6) return (err.textContent = 'Пароль — минимум 6 символов');
   if (authMode === 'signup' && !name) return (err.textContent = 'Введите имя');
-  const btn = $('#authBtn'); btn.disabled = true;
+  const btn = $('#authBtn'); btn.disabled = true; const label = btn.textContent; btn.textContent = authMode === 'signup' ? 'Создаю аккаунт…' : 'Вхожу…';
   try {
     const r = authMode === 'signup'
       ? await sb.auth.signUp({ email, password, options: { data: { name } } })
@@ -122,7 +133,7 @@ $('#authForm').onsubmit = async e => {
     if (r.error) throw r.error;
     if (!r.data.session) err.textContent = 'Аккаунт создан. Подтвердите почту и войдите.';
   } catch (ex) { err.textContent = errText(ex); }
-  btn.disabled = false;
+  btn.disabled = false; btn.textContent = label;
 };
 
 /* ---------- Загрузка данных ---------- */
@@ -183,8 +194,17 @@ function initMap() {
   map.zoomControl.setPosition('bottomleft');
   layer = L.layerGroup().addTo(map);
   map.on('click', e => { if (S.adding) openAddForm(e.latlng); });
-  // Центрируем на пользователе, если разрешит
-  navigator.geolocation?.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 13), () => {}, { timeout: 5000 });
+}
+/* Первый показ: охватить все места; если мест нет — центр на пользователе */
+let fitted = false;
+function fitOnce() {
+  if (fitted) return; fitted = true;
+  if (S.places.length) {
+    const b = L.latLngBounds(S.places.map(p => [p.lat, p.lng]));
+    map.fitBounds(b.pad(0.15), { maxZoom: 15, animate: false });
+  } else {
+    navigator.geolocation?.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 13), () => {}, { timeout: 5000 });
+  }
 }
 function pinIcon(p) {
   const c = CATS[p.category] || CATS.other;
@@ -193,7 +213,7 @@ function pinIcon(p) {
   const cls = mine ? 'mine' : done ? 'done' : 'task';
   const flag = mine ? '' : done ? '<span class="flag">✓</span>' : `<span class="flag">+${PTS.visit}</span>`;
   return L.divIcon({
-    className: '', iconSize: [38, 46], iconAnchor: [19, 44],
+    className: '', iconSize: [40, 48], iconAnchor: [20, 47],
     html: `<div class="pin ${cls}"><span class="b" style="background:${c.c}"></span><span class="e">${c.e}</span>${flag}</div>`,
   });
 }
@@ -217,15 +237,29 @@ function renderFilters() {
 
 /* Добавление места */
 function startAdding() {
-  S.adding = true; $('#addbar').hidden = false; $('#fab').hidden = true;
+  if (isMobile() && S.tab !== 'map') setTab('map');
+  closeModal();
+  S.adding = true; $('#addbar').hidden = false; $('#fab').hidden = true; $('#locBtn').hidden = true;
   $('#map').classList.add('adding');
 }
 function stopAdding() {
-  S.adding = false; $('#addbar').hidden = true; $('#fab').hidden = false;
+  S.adding = false; $('#addbar').hidden = true; $('#fab').hidden = false; $('#locBtn').hidden = false;
   $('#map').classList.remove('adding');
   if (newMarker) { newMarker.remove(); newMarker = null; }
 }
 $('#fab').onclick = startAdding;
+let meMarker = null;
+$('#locBtn').onclick = () => {
+  if (!navigator.geolocation) return toast('Этот браузер не умеет определять местоположение');
+  const btn = $('#locBtn'); btn.classList.add('busy');
+  navigator.geolocation.getCurrentPosition(p => {
+    btn.classList.remove('busy');
+    const ll = [p.coords.latitude, p.coords.longitude];
+    if (meMarker) meMarker.setLatLng(ll);
+    else meMarker = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [18, 18], iconAnchor: [9, 9], html: '<div class="medot"></div>' }), interactive: false, zIndexOffset: -100 }).addTo(map);
+    map.setView(ll, Math.max(map.getZoom(), 15));
+  }, () => { btn.classList.remove('busy'); toast('Не удалось определить, где вы. Разрешите доступ к геолокации'); }, { enableHighAccuracy: true, timeout: 10000 });
+};
 $('#addCancel').onclick = stopAdding;
 $('#addHere').onclick = () => {
   if (!navigator.geolocation) return toast('Геолокация недоступна в этом браузере');
@@ -238,19 +272,19 @@ $('#addHere').onclick = () => {
 
 function openAddForm(latlng) {
   if (newMarker) newMarker.remove();
-  newMarker = L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [38, 46], iconAnchor: [19, 44], html: '<div class="pin newpin"><span class="b"></span><span class="e">✨</span></div>' }) }).addTo(map);
+  newMarker = L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [40, 48], iconAnchor: [20, 47], html: '<div class="pin newpin"><span class="b"></span><span class="e">✨</span></div>' }) }).addTo(map);
   map.panTo(latlng);
   let cat = 'food', file = null;
   const m = modal(`
     <div class="mb">
       <h2>Новое место</h2>
       <form class="form" id="pf" novalidate>
-        <label class="field"><span>Название</span><input type="text" name="title" maxlength="80" placeholder="Например: Кофейня с видом на реку" required></label>
-        <div class="field"><span>Что это</span><div class="seg" id="cats">${Object.entries(CATS).map(([k, c]) => `<button type="button" class="chip" data-c="${k}" aria-pressed="${k === cat}">${c.e} ${c.n}</button>`).join('')}</div></div>
-        <label class="field"><span>Заметка для друзей</span><textarea name="note" maxlength="1000" placeholder="Что тут крутого, что заказать, когда лучше идти"></textarea></label>
-        <label class="field"><span>Ссылка <em class="hint">(необязательно — пост, видео, Яндекс Карты)</em></span><input type="text" name="link" maxlength="500" placeholder="https://"></label>
+        <label class="field"><span>Название</span><input type="text" name="title" maxlength="80" placeholder="Например: кофейня с видом на реку" required></label>
+        <div class="field"><span>Что это за место</span><div class="catgrid" id="cats">${Object.entries(CATS).map(([k, c]) => `<button type="button" class="chip" data-c="${k}" aria-pressed="${k === cat}">${c.e} ${c.n}</button>`).join('')}</div></div>
+        <label class="field"><span>Чем оно крутое</span><textarea name="note" maxlength="1000" placeholder="Что заказать, когда лучше идти, где сесть"></textarea></label>
         <label class="drop" id="drop"><input type="file" accept="image/*" id="pfile"><span class="thumb" id="pprev">📷</span><span class="dt"><b>Добавить фото</b>Необязательно, но с фото место заметнее</span></label>
-        <div class="coords">📍 ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}</div>
+        <label class="field"><span>Ссылка <em class="hint">· необязательно: пост, видео или Яндекс Карты</em></span><input type="text" name="link" maxlength="500" inputmode="url" placeholder="https://"></label>
+        <div class="coords">Точка на карте: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)} · <button type="button" class="linkbtn" id="moveP" style="padding:0">выбрать другую</button></div>
         <div class="err" id="perr"></div>
         <button class="cta" type="submit" id="psave">Сохранить место (+${PTS.place})</button>
       </form>
@@ -260,7 +294,8 @@ function openAddForm(latlng) {
     file = e.target.files[0] || null;
     if (file) m.querySelector('#pprev').outerHTML = `<img id="pprev" src="${URL.createObjectURL(file)}" alt="">`;
   };
-  m.querySelector('[name=title]').focus();
+  m.querySelector('#moveP').onclick = () => { const o = $('#modalRoot .overlay'); if (o) o._onClose = null; closeModal(); if (newMarker) { newMarker.remove(); newMarker = null; } if (!S.adding) startAdding(); toast('Нажмите на карту, где находится место'); };
+  if (!isMobile()) m.querySelector('[name=title]').focus();
   m.querySelector('#pf').onsubmit = async e => {
     e.preventDefault();
     const f = new FormData(e.target);
@@ -278,18 +313,20 @@ function openAddForm(latlng) {
       });
       if (error) throw error;
       closeModal(); stopAdding();
-      toast(`Место добавлено · +${PTS.place} баллов. Друзья увидят его как задание`);
+      toast(`Место добавлено, +${PTS.place} баллов. Друзья увидят его как задание`, 3500);
       await refresh(false);
-    } catch (ex) { errEl.textContent = errText(ex); btn.disabled = false; btn.textContent = 'Сохранить место'; }
+    } catch (ex) { errEl.textContent = errText(ex); btn.disabled = false; btn.textContent = `Сохранить место (+${PTS.place})`; }
   };
 }
 
 /* ---------- Окна ---------- */
 function modal(html, onClose) {
+  const replacing = !!$('#modalRoot .overlay');   // перерисовка того же окна — без анимации
   closeModal();
   const o = document.createElement('div');
   o.className = 'overlay';
   o.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><button class="close" aria-label="Закрыть">×</button>${html}</div>`;
+  if (replacing) { o.style.animation = 'none'; o.firstElementChild.style.animation = 'none'; }
   o.onclick = e => { if (e.target === o) closeModal(); };
   o.querySelector('.close').onclick = closeModal;
   o._onClose = onClose;
@@ -321,31 +358,40 @@ function openPlace(id) {
   const reacts = EMOJIS.map(e => {
     const list = S.reactions.filter(r => r.place_id === p.id && r.emoji === e);
     const on = list.some(r => r.user_id === S.user.id);
-    return `<button class="re" data-e="${e}" aria-pressed="${on}" title="${esc(list.map(r => nameOf(r.user_id)).join(', '))}">${e}${list.length ? `<b>${list.length}</b>` : ''}</button>`;
+    return `<button class="re" data-e="${e}" aria-pressed="${on}" title="${esc(list.map(r => nameOf(r.user_id)).join(', ') || 'Поставить реакцию')}">${e}${list.length ? `<b>${list.length}</b>` : ''}</button>`;
   }).join('');
   let action;
-  if (mine) action = `<div class="state info">Это ваше место. Друзья получат задание: прийти и сфотографировать (+${PTS.visit} им, +${PTS.visited} вам).</div>
-    <button class="cta danger" id="delPlace">Удалить место</button>`;
+  if (mine) action = `<div class="state info">Это ваше место. Друзья видят его как задание: придут, сфотографируют и получат +${PTS.visit}, а вы +${PTS.visited}.</div>`;
   else if (myVisit) action = `<div class="state ok">✓ Задание выполнено ${ago(myVisit.created_at)}</div>`;
-  else action = `<button class="cta" id="doTask">📷 Выполнить задание · +${PTS.visit}</button>
-    <p class="hint">Придите на место и сфотографируйте его прямо с сайта — фото из галереи не принимаются.</p>`;
+  else action = `<div class="taskbox">
+      <div class="tt"><span>Задание: побывать здесь</span><span class="rew">+${PTS.visit}</span></div>
+      <p class="hint">Придите на место и сфотографируйте его прямо с сайта. Фото из галереи не подойдёт.</p>
+      <button class="cta" id="doTask">📷 Я на месте, сфотографировать</button>
+    </div>`;
+  const yandex = `https://yandex.ru/maps/?pt=${p.lng},${p.lat}&z=17&l=map`;
 
   const m = modal(`
-    ${p.photo_url ? `<div class="herowrap"><img class="hero" src="${esc(p.photo_url)}" alt="" id="hero"></div>` : ''}
+    ${p.photo_url ? `<div class="herowrap" id="hero"><img class="hero" src="${esc(p.photo_url)}" alt="${esc(p.title)}"></div>` : ''}
     <div class="mb">
       <div class="row"><span class="cat" style="background:${c.c}">${c.e} ${c.n}</span></div>
       <h2>${esc(p.title)}</h2>
-      <div class="by">${avatar(prof(p.author_id), 'sm')}<span><b>${esc(nameOf(p.author_id))}</b> · ${ago(p.created_at)}</span></div>
+      <div class="by">${avatar(prof(p.author_id), 'sm')}<span>Советует <b>${esc(mine ? 'вы' : nameOf(p.author_id))}</b>, ${ago(p.created_at)}</span></div>
       ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
-      ${p.link ? `<a class="link" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(p.link.replace(/^https?:\/\//, '').slice(0, 60))}</a>` : ''}
-      <div class="reacts">${reacts}</div>
+      <div class="links">
+        <button type="button" class="lbtn" id="onMap">🗺️ Показать на карте</button>
+        <a class="lbtn" href="${esc(yandex)}" target="_blank" rel="noopener noreferrer">🧭 Как добраться</a>
+        ${p.link ? `<a class="lbtn" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(p.link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32))}</a>` : ''}
+      </div>
+      <div class="reacts" aria-label="Реакции">${reacts}</div>
       ${action}
-      <div class="sec">Здесь побывали · ${visits.length}</div>
-      ${visits.length ? `<div class="visits">${visits.map(v => `<div class="vis"><img src="${esc(v.photo_url)}" alt="" data-src="${esc(v.photo_url)}"><div class="vi">${avatar(prof(v.user_id), 'sm')}<b>${esc(nameOf(v.user_id))}</b><span>${ago(v.created_at)}</span></div></div>`).join('')}</div>`
-        : `<p class="intro">Пока никто. ${mine ? 'Позовите друзей!' : 'Будьте первым!'}</p>`}
+      <div class="sec">Здесь побывали <span class="n">${visits.length}</span></div>
+      ${visits.length ? `<div class="visits">${visits.map(v => `<div class="vis"><img src="${esc(v.photo_url)}" alt="" loading="lazy" data-src="${esc(v.photo_url)}"><div class="vi">${avatar(prof(v.user_id), 'sm')}<b>${esc(nameOf(v.user_id))}</b><span>${ago(v.created_at)}</span></div></div>`).join('')}</div>`
+        : `<p class="intro">Пока никто. ${mine ? 'Позовите друзей — для них это задание.' : 'Будьте первым!'}</p>`}
+      ${mine ? '<button class="linkbtn warn" id="delPlace">Удалить место</button>' : ''}
     </div>`);
   m.querySelector('#hero')?.addEventListener('click', () => lightbox(p.photo_url));
   m.querySelectorAll('.vis img').forEach(i => i.onclick = () => lightbox(i.dataset.src));
+  m.querySelector('#onMap').onclick = () => { closeModal(); showOnMap(p.lat, p.lng, 16); };
   m.querySelectorAll('.re').forEach(b => b.onclick = async () => {
     const on = b.getAttribute('aria-pressed') === 'true';
     b.disabled = true;
@@ -353,7 +399,9 @@ function openPlace(id) {
       ? await sb.from('reactions').delete().match({ place_id: p.id, user_id: S.user.id, emoji: b.dataset.e })
       : await sb.from('reactions').insert({ place_id: p.id, emoji: b.dataset.e });
     if (r.error) toast(errText(r.error));
+    const st = $('.modal')?.scrollTop || 0;
     await refresh(); openPlace(p.id);
+    const md = $('.modal'); if (md) md.scrollTop = st;
   });
   m.querySelector('#doTask')?.addEventListener('click', () => openCamera(p));
   m.querySelector('#delPlace')?.addEventListener('click', async () => {
@@ -371,20 +419,20 @@ async function openCamera(p) {
   const canLive = !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
   const m = modal(`
     <div class="mb">
-      <h2>Задание: ${esc(p.title)}</h2>
-      <p class="intro">Сфотографируйте место прямо сейчас. Фото увидят друзья.</p>
-      <div class="cam" id="cam">${canLive ? '<video id="vid" autoplay playsinline muted></video>' : '<span class="thumb" style="background:none;font-size:40px">📷</span>'}</div>
+      <h2>${esc(p.title)}</h2>
+      <p class="intro">Сфотографируйте место прямо сейчас — так друзья увидят, что вы тут были.</p>
+      <div class="cam${canLive ? '' : ' nocam'}" id="cam">${canLive ? '<video id="vid" autoplay playsinline muted></video>' : '<span style="font-size:44px">📷</span>'}</div>
       <div class="err" id="cerr"></div>
       <div class="camrow" id="camrow">
-        ${canLive ? '<button class="cta" id="shot">Сделать снимок</button>'
-          : '<label class="cta" style="cursor:pointer">Открыть камеру<input type="file" accept="image/*" capture="environment" id="capin" hidden></label>'}
+        ${canLive ? '<button class="cta" id="shot">📸 Сделать снимок</button>'
+          : '<label class="cta" style="cursor:pointer">📷 Открыть камеру<input type="file" accept="image/*" capture="environment" id="capin" hidden></label>'}
       </div>
     </div>`, () => openPlace(p.id));
   let blob = null;
   const cam = m.querySelector('#cam'), row = m.querySelector('#camrow'), cerr = m.querySelector('#cerr');
   const showPreview = b => {
     blob = b;
-    cam.innerHTML = `<img src="${URL.createObjectURL(b)}" alt="">`;
+    cam.classList.remove('nocam'); cam.innerHTML = `<img src="${URL.createObjectURL(b)}" alt="">`;
     row.innerHTML = `<button class="cta ghost" id="again">Переснять</button><button class="cta" id="send">Отправить · +${PTS.visit}</button>`;
     row.querySelector('#again').onclick = () => { stopCamera(); openCamera(p); };
     row.querySelector('#send').onclick = send;
@@ -397,9 +445,9 @@ async function openCamera(p) {
       if (error) throw error;
       stopCamera();
       $('#modalRoot .overlay')._onClose = null; closeModal();
-      toast(`Задание выполнено! +${PTS.visit} баллов 🎉`, 3500);
+      toast(`Задание выполнено! +${PTS.visit} баллов 🎉`, 4000);
       await refresh(false); openPlace(p.id);
-    } catch (ex) { cerr.textContent = errText(ex); btn.disabled = false; btn.textContent = 'Отправить'; }
+    } catch (ex) { cerr.textContent = errText(ex); btn.disabled = false; btn.textContent = `Отправить · +${PTS.visit}`; }
   }
   if (canLive) {
     try {
@@ -410,13 +458,20 @@ async function openCamera(p) {
         const b = await compress(v); stopCamera(); showPreview(b);
       };
     } catch (ex) {
-      cerr.textContent = ex?.name === 'NotAllowedError' ? 'Разрешите доступ к камере в настройках браузера.' : 'Камера недоступна: ' + (ex?.message || ex);
+      cerr.textContent = ex?.name === 'NotAllowedError'
+        ? 'Браузер не дал доступ к камере. Разрешите его в настройках сайта или откройте камеру телефона кнопкой ниже.'
+        : 'Не получилось включить камеру здесь. Откройте камеру телефона кнопкой ниже.';
+      cam.innerHTML = '<span style="font-size:44px">📷</span>'; cam.classList.add('nocam');
+      row.innerHTML = '<label class="cta" style="cursor:pointer">📷 Открыть камеру<input type="file" accept="image/*" capture="environment" id="capin" hidden></label>';
+      bindCapture();
     }
-  } else {
+  } else bindCapture();
+  function bindCapture() {
     m.querySelector('#capin').onchange = async e => {
       const f = e.target.files[0]; if (!f) return;
       // Защита от старых фото: снимок должен быть сделан только что
       if (Date.now() - f.lastModified > 5 * 60 * 1000) return (cerr.textContent = 'Нужно свежее фото, сделанное прямо сейчас, а не из галереи.');
+      cerr.textContent = '';
       showPreview(await compress(f));
     };
   }
@@ -430,12 +485,13 @@ function openProfile() {
   const myVisits = S.visits.filter(v => v.user_id === S.user.id).length;
   const m = modal(`
     <div class="mb">
-      <div class="prof">${avatar(me, 'lg')}<div><h2>${esc(me.name)}</h2><div class="hint">Код для друзей: <b>${esc(me.code)}</b></div></div></div>
+      <div class="prof">${avatar(me, 'lg')}<div><h2>${esc(me.name)}</h2><div class="hint">Код для друзей: <span class="code">${esc(me.code)}</span></div></div></div>
       <div class="stats">
         <div class="stat"><b>${me.points}</b><span>баллов</span></div>
-        <div class="stat"><b>${myPlaces}</b><span>мест добавлено</span></div>
-        <div class="stat"><b>${myVisits}</b><span>заданий</span></div>
+        <div class="stat"><b>${myPlaces}</b><span>${plural(myPlaces, 'место', 'места', 'мест')}</span></div>
+        <div class="stat"><b>${myVisits}</b><span>${plural(myVisits, 'задание', 'задания', 'заданий')}</span></div>
       </div>
+      <div class="sec">Настройки профиля</div>
       <form class="form" id="prf">
         <label class="field"><span>Имя</span><input type="text" name="name" maxlength="40" value="${esc(me.name)}"></label>
         <div class="field"><span>Аватар</span><div class="emogrid">
@@ -444,9 +500,9 @@ function openProfile() {
         </div></div>
         <div class="field"><span>Цвет</span><div class="swatches">${COLORS.map(c => `<button type="button" class="sw" data-c="${c}" style="background:${c}" aria-pressed="${c === color}" aria-label="${c}"></button>`).join('')}</div></div>
         <div class="err" id="prerr"></div>
-        <button class="cta" type="submit">Сохранить</button>
+        <button class="cta" type="submit">Сохранить профиль</button>
       </form>
-      <button class="cta ghost" id="logout">Выйти из аккаунта</button>
+      <button class="linkbtn" id="logout">Выйти из аккаунта</button>
     </div>`);
   m.querySelectorAll('.emo-o').forEach(b => b.onclick = () => { av = b.dataset.a; m.querySelectorAll('.emo-o').forEach(x => x.setAttribute('aria-pressed', x === b)); });
   m.querySelectorAll('.sw').forEach(b => b.onclick = () => { color = b.dataset.c; m.querySelectorAll('.sw').forEach(x => x.setAttribute('aria-pressed', x === b)); });
@@ -463,11 +519,23 @@ function openProfile() {
 $('#scoreBtn').onclick = openProfile;
 
 /* ---------- Панель ---------- */
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
-  S.tab = t.dataset.tab;
-  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === t));
-  renderPanel();
-});
+/* Разделы. На телефоне «Карта» — отдельный экран, на компьютере карта видна всегда. */
+const mobileMQ = window.matchMedia('(max-width: 860px)');
+const isMobile = () => mobileMQ.matches;
+function setTab(tab) {
+  if (tab === 'map' && !isMobile()) tab = 'tasks';
+  S.tab = tab;
+  document.body.dataset.view = tab;
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.tab === tab));
+  if (tab === 'map') { setTimeout(() => map?.invalidateSize(), 30); }
+  else { renderPanel(); $('#pbody').scrollTop = 0; }
+}
+function showOnMap(lat, lng, zoom = 16) {
+  if (isMobile()) setTab('map');
+  setTimeout(() => map.setView([lat, lng], Math.max(map.getZoom(), zoom)), 40);
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => setTab(t.dataset.tab));
+mobileMQ.addEventListener?.('change', () => { if (S.tab === 'map' && !isMobile()) setTab('tasks'); setTimeout(() => map?.invalidateSize(), 60); });
 
 function renderHeader() {
   $('#meAv').outerHTML = avatar(S.me).replace('class="av', 'id="meAv" class="av');
@@ -483,32 +551,68 @@ function placeItem(p) {
   const c = CATS[p.category] || CATS.other;
   const done = visitOf(p.id, S.user.id);
   const n = S.visits.filter(v => v.place_id === p.id).length;
+  const mine = p.author_id === S.user.id;
   return `<button class="item" data-id="${p.id}">
     ${p.photo_url ? `<img class="thumb" src="${esc(p.photo_url)}" alt="" loading="lazy">` : `<span class="thumb">${c.e}</span>`}
     <div><div class="t">${esc(p.title)}</div>
-      <div class="s">${avatar(prof(p.author_id), 'sm')} ${esc(nameOf(p.author_id))} · ${c.n}${n ? ` · был${n > 1 ? 'и' : ''} ${n}` : ''}</div></div>
-    ${p.author_id === S.user.id ? '' : done ? '<span class="rew done">✓</span>' : `<span class="rew">+${PTS.visit}</span>`}
+      <div class="s">${mine ? '' : avatar(prof(p.author_id), 'sm')}${mine ? c.e + ' ' + c.n : esc(nameOf(p.author_id))}${n ? `, ${n} ${plural(n, 'визит', 'визита', 'визитов')}` : ''}</div></div>
+    ${mine ? '' : done ? '<span class="rew done">✓</span>' : `<span class="rew">+${PTS.visit}</span>`}
   </button>`;
 }
 function bindItems(root) {
   root.querySelectorAll('[data-id]').forEach(b => b.onclick = () => {
     const p = S.places.find(x => x.id === Number(b.dataset.id));
-    if (p) { map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15)); openPlace(p.id); }
+    if (!p) return;
+    if (!isMobile()) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15));
+    else map.setView([p.lat, p.lng], Math.max(map.getZoom(), 15), { animate: false });
+    openPlace(p.id);
   });
 }
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* без памяти браузера — не страшно */ } },
+};
+function dayKey(ts) {
+  const d = new Date(ts); d.setHours(0, 0, 0, 0);
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const diff = Math.round((t - d) / 86400000);
+  if (diff === 0) return 'Сегодня';
+  if (diff === 1) return 'Вчера';
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(d.getFullYear() !== t.getFullYear() ? { year: 'numeric' } : {}) });
+}
+const sec = (title, n) => `<div class="sec">${title}${n != null ? ` <span class="n">${n}</span>` : ''}</div>`;
 
 function renderPanel() {
   const body = $('#pbody');
+  if (S.tab === 'map' || !S.me) return;
   if (S.tab === 'tasks') {
     const tasks = S.places.filter(isTask);
     const done = S.places.filter(p => p.author_id !== S.user.id && visitOf(p.id, S.user.id));
     const mine = S.places.filter(p => p.author_id === S.user.id);
-    body.innerHTML = !S.friends.length && !mine.length
-      ? `<div class="empty"><b>Карта пока пустая</b>Добавьте первое место кнопкой «Добавить место» и позовите друзей во вкладке «Друзья» — их места станут вашими заданиями.</div>`
-      : `<p class="intro">Места друзей, где вы ещё не были. Придите, сфотографируйте — получите <b>+${PTS.visit}</b>.</p>
-        ${tasks.length ? tasks.map(placeItem).join('') : '<div class="empty">Все задания выполнены 🎉</div>'}
-        ${done.length ? `<div class="sec">Выполнено · ${done.length}</div>${done.map(placeItem).join('')}` : ''}
-        ${mine.length ? `<div class="sec">Мои места · ${mine.length}</div>${mine.map(placeItem).join('')}` : ''}`;
+    const howto = store.get('mv_howto_hidden') ? '' : `<div class="howto">
+        <button class="x" id="howtoX" aria-label="Скрыть подсказку">×</button>
+        <h3>Как это работает</h3>
+        <ol>
+          <li>Отмечайте на карте места, которые советуете друзьям (+${PTS.place}).</li>
+          <li>Места друзей становятся вашими заданиями: придите и сфотографируйте (+${PTS.visit}).</li>
+          <li>Когда друг побывал в вашем месте, вы тоже получаете баллы (+${PTS.visited}).</li>
+        </ol>
+      </div>`;
+    if (!S.friends.length && !mine.length) {
+      body.innerHTML = `${howto}
+        <div class="empty"><span class="ei">🗺️</span><b>Карта пока пустая</b>Добавьте первое место и позовите друзей — их места станут вашими заданиями.
+          <span class="seg" style="justify-content:center"><button class="sbtn" id="emptyAdd">Добавить место</button><button class="sbtn ghost" id="emptyFr">Позвать друзей</button></span></div>`;
+    } else {
+      body.innerHTML = `${howto}
+        <div class="ptitle">Задания от друзей</div>
+        ${tasks.length ? `<p class="intro">Места друзей, где вы ещё не были. Придите и сфотографируйте — получите +${PTS.visit}.</p>${tasks.map(placeItem).join('')}`
+          : `<div class="empty"><span class="ei">🎉</span><b>Все задания выполнены</b>${S.friends.length ? 'Новые появятся, когда друзья добавят места.' : 'Добавьте друзей — их места станут заданиями.'}</div>`}
+        ${mine.length ? sec('Мои места', mine.length) + mine.map(placeItem).join('') : ''}
+        ${done.length ? sec('Выполнено', done.length) + done.map(placeItem).join('') : ''}`;
+    }
+    body.querySelector('#howtoX')?.addEventListener('click', () => { store.set('mv_howto_hidden', '1'); renderPanel(); });
+    body.querySelector('#emptyAdd')?.addEventListener('click', startAdding);
+    body.querySelector('#emptyFr')?.addEventListener('click', () => setTab('friends'));
     bindItems(body);
   }
   if (S.tab === 'feed') {
@@ -516,15 +620,19 @@ function renderPanel() {
       ...S.places.map(p => ({ t: p.created_at, who: p.author_id, place: p, kind: 'place' })),
       ...S.visits.map(v => ({ t: v.created_at, who: v.user_id, place: S.places.find(p => p.id === v.place_id), kind: 'visit', photo: v.photo_url })),
     ].filter(e => e.place).sort((a, b) => new Date(b.t) - new Date(a.t)).slice(0, 60);
-    body.innerHTML = ev.length ? ev.map(e => `
-      <button class="ev" data-id="${e.place.id}">
-        ${avatar(prof(e.who), 'sm')}
-        <div><div class="txt"><b>${esc(nameOf(e.who))}</b> · ${e.kind === 'place'
-          ? `новое место «${esc(e.place.title)}»`
-          : `выполнено задание «${esc(e.place.title)}» <span class="plus">+${PTS.visit}</span>`}</div>
+    let lastDay = '';
+    body.innerHTML = `<div class="ptitle">Что нового у друзей</div>` + (ev.length ? ev.map(e => {
+      const d = dayKey(e.t), head = d !== lastDay ? `<div class="daysep">${d}</div>` : ''; lastDay = d;
+      const img = e.kind === 'visit' ? e.photo : e.place.photo_url;
+      return `${head}<button class="ev" data-id="${e.place.id}">
+        ${avatar(prof(e.who))}
+        <div><div class="txt">${e.who === S.user.id
+          ? (e.kind === 'place' ? `<b>Вы</b> добавили «${esc(e.place.title)}»` : `<b>Вы</b> выполнили задание «${esc(e.place.title)}» <span class="plus">+${PTS.visit}</span>`)
+          : (e.kind === 'place' ? `<b>${esc(nameOf(e.who))}</b> советует «${esc(e.place.title)}»` : `<b>${esc(nameOf(e.who))}</b>: задание «${esc(e.place.title)}» выполнено <span class="plus">+${PTS.visit}</span>`)}</div>
           <div class="when">${ago(e.t)}</div></div>
-        ${(e.kind === 'visit' ? e.photo : e.place.photo_url) ? `<img src="${esc(e.kind === 'visit' ? e.photo : e.place.photo_url)}" alt="" loading="lazy">` : '<span></span>'}
-      </button>`).join('') : '<div class="empty"><b>Здесь будет лента</b>Новые места и выполненные задания ваши и друзей.</div>';
+        ${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : '<span></span>'}
+      </button>`;
+    }).join('') : '<div class="empty"><span class="ei">📰</span><b>Здесь будет лента</b>Новые места и выполненные задания — ваши и друзей.</div>');
     bindItems(body);
   }
   if (S.tab === 'friends') renderFriends(body);
@@ -534,48 +642,56 @@ function renderPanel() {
     const max = Math.max(1, ...list.map(p => p.points));
     const pos = list.findIndex(p => p.id === S.user.id) + 1;
     const above = list[pos - 2];
+    const gap = above ? above.points - S.me.points + 1 : 0;
     body.innerHTML = `
       <div class="rkme"><div><div class="k">Ваше место</div><div class="v">${pos}<small> из ${list.length}</small></div></div>
-        <div class="hint">${above ? `До «${esc(above.name)}» — ${above.points - S.me.points + 1} балл.` : list.length > 1 ? 'Вы лидер среди друзей! 🏆' : 'Добавьте друзей, чтобы соревноваться.'}</div></div>
+        <div class="hint">${above ? `До «${esc(above.name)}» — ${gap} ${plural(gap, 'балл', 'балла', 'баллов')}` : list.length > 1 ? 'Вы лидер среди друзей! 🏆' : 'Добавьте друзей, чтобы соревноваться'}</div></div>
       ${list.map((p, i) => `<div class="rk ${p.id === S.user.id ? 'me' : ''}">
-        <span class="pos ${i < 3 ? 'm' + (i + 1) : ''}">${i + 1}</span>${avatar(p)}
+        <span class="pos ${i < 3 && list.length > 1 ? 'm' + (i + 1) : ''}">${i + 1}</span>${avatar(p)}
         <div><div class="nm">${esc(p.id === S.user.id ? p.name + ' (вы)' : p.name)}</div><div class="bar"><i style="width:${(p.points / max) * 100}%;background:${esc(p.color)}"></i></div></div>
         <span class="pts">${p.points}</span></div>`).join('')}
-      <div class="sec">Как получить баллы</div>
+      ${list.length < 2 ? `<div class="empty"><b>Соревнуйтесь с друзьями</b>Добавьте друзей — и здесь появится общий рейтинг.<button class="sbtn" id="rkFr">Добавить друзей</button></div>` : ''}
+      ${sec('Как получить баллы')}
       <div class="rules">
-        <div>Выполнить задание друга (фото на месте)</div><div class="p">+${PTS.visit}</div>
-        <div>Добавить место на карту</div><div class="p">+${PTS.place}</div>
-        <div>Друг побывал в вашем месте</div><div class="p">+${PTS.visited}</div>
+        <div class="r"><span>Выполнить задание друга (фото на месте)</span><span class="p pts-sticker">+${PTS.visit}</span></div>
+        <div class="r"><span>Добавить место на карту</span><span class="p pts-sticker">+${PTS.place}</span></div>
+        <div class="r"><span>Друг побывал в вашем месте</span><span class="p pts-sticker">+${PTS.visited}</span></div>
       </div>`;
+    body.querySelector('#rkFr')?.addEventListener('click', () => setTab('friends'));
   }
 }
 
 function renderFriends(body) {
   const invite = `${location.origin}${location.pathname}?invite=${S.me.code}`;
   body.innerHTML = `
-    <div class="myid"><div><div class="k">Ваш код</div><div class="v">${esc(S.me.code)}</div></div>
-      <button class="sbtn ghost sm" id="copyInv">Скопировать ссылку</button></div>
-    <form class="addrow" id="addf"><input class="input" name="code" maxlength="6" placeholder="Код друга" autocomplete="off"><button class="sbtn" type="submit">Добавить</button></form>
+    <div class="ptitle">Друзья</div>
+    <div class="myid"><div><div class="k">Ваш код для друзей</div><div class="v">${esc(S.me.code)}</div></div>
+      <button class="sbtn sm" id="copyInv">${navigator.share ? 'Пригласить' : 'Скопировать ссылку'}</button></div>
+    <form class="addrow" id="addf"><input class="input" name="code" maxlength="6" placeholder="Код друга, 6 символов" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Код друга"><button class="sbtn" type="submit">Добавить</button></form>
     <div class="err" id="ferr"></div>
-    ${S.incoming.length ? `<div class="sec">Заявки · ${S.incoming.length}</div>` + S.incoming.map(r => `
+    ${S.incoming.length ? sec('Хотят дружить', S.incoming.length) + S.incoming.map(r => `
       <div class="fr in">${avatar(prof(r.from_id))}<div><div class="nm">${esc(prof(r.from_id)?.name)}</div><div class="sub">хочет дружить</div></div>
       <div class="acts"><button class="sbtn ok sm" data-acc="${r.id}">Принять</button><button class="sbtn ghost sm" data-dec="${r.id}">✕</button></div></div>`).join('') : ''}
-    <div class="sec">Друзья · ${S.friends.length}</div>
-    ${S.friends.length ? S.friends.map(f => `
-      <div class="fr">${avatar(f)}<div><div class="nm">${esc(f.name)}</div><div class="sub">${f.points} баллов · мест: ${S.places.filter(p => p.author_id === f.id).length}</div></div>
-      <div class="acts"><button class="sbtn ghost sm" data-rm="${f.id}" title="Удалить из друзей">✕</button></div></div>`).join('')
-      : '<div class="empty">Пока никого. Отправьте другу свой код или ссылку.</div>'}
-    ${S.outgoing.length ? `<div class="sec">Ждут ответа</div>` + S.outgoing.map(r => `
+    ${sec('Мои друзья', S.friends.length)}
+    ${S.friends.length ? S.friends.map(f => { const n = S.places.filter(p => p.author_id === f.id).length; return `
+      <div class="fr">${avatar(f)}<div><div class="nm">${esc(f.name)}</div><div class="sub">${f.points} ${plural(f.points, 'балл', 'балла', 'баллов')}, ${n} ${plural(n, 'место', 'места', 'мест')}</div></div>
+      <div class="acts"><button class="sbtn ghost sm" data-rm="${f.id}" title="Удалить из друзей" aria-label="Удалить ${esc(f.name)} из друзей">✕</button></div></div>`; }).join('')
+      : '<div class="empty"><span class="ei">👋</span><b>Пока никого</b>Отправьте другу ссылку-приглашение или попросите его код.</div>'}
+    ${S.outgoing.length ? sec('Ждут ответа', S.outgoing.length) + S.outgoing.map(r => `
       <div class="fr">${avatar(prof(r.to_id))}<div><div class="nm">${esc(prof(r.to_id)?.name)}</div><div class="sub">заявка отправлена</div></div>
       <div class="acts"><button class="sbtn ghost sm" data-dec="${r.id}">Отменить</button></div></div>`).join('') : ''}`;
   body.querySelector('#copyInv').onclick = async () => {
-    try { await navigator.clipboard.writeText(invite); toast('Ссылка скопирована'); }
-    catch { prompt('Скопируйте ссылку:', invite); }
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Место вместе', text: `Добавляйся ко мне в «Место вместе» — мой код ${S.me.code}`, url: invite }); return; }
+      catch (e) { if (e?.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(invite); toast('Ссылка скопирована — отправьте её другу'); }
+    catch { prompt('Скопируйте ссылку и отправьте другу:', invite); }
   };
   body.querySelector('#addf').onsubmit = async e => {
     e.preventDefault();
     const code = String(new FormData(e.target).get('code')).trim().toUpperCase();
-    if (code.length !== 6) return (body.querySelector('#ferr').textContent = 'Код — 6 символов');
+    if (code.length !== 6) return (body.querySelector('#ferr').textContent = 'В коде друга 6 символов — проверьте, всё ли скопировалось');
     await addFriend(code, body.querySelector('#ferr'));
   };
   body.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => respond(b.dataset.acc, true));
@@ -590,7 +706,7 @@ function renderFriends(body) {
 async function addFriend(code, errEl) {
   const { data, error } = await sb.rpc('send_friend_request', { p_code: code });
   if (error) { const t = errText(error); errEl ? (errEl.textContent = t) : toast(t); return; }
-  toast(data === 'accepted' ? 'Теперь вы друзья! Их места появились на карте' : data === 'already' ? 'Вы уже друзья' : 'Заявка отправлена');
+  toast(data === 'accepted' ? 'Теперь вы друзья! Их места появились на карте' : data === 'already' ? 'Вы уже друзья' : 'Заявка отправлена — ждём, когда друг её примет');
   refresh();
 }
 async function respond(id, accept) {
@@ -608,9 +724,11 @@ async function start(session) {
   S.user = session.user;
   $('#auth').hidden = true; $('#app').hidden = false;
   if (!started) { initMap(); started = true; }
+  setTab(isMobile() ? 'map' : S.tab === 'map' ? 'tasks' : S.tab);
   setTimeout(() => map.invalidateSize(), 50);
-  try { await loadAll(); renderAll(); }
-  catch (e) { toast(errText(e), 5000); console.error(e); return; }
+  store.set('mv_seen', '1');
+  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); }
+  catch (e) { hideBoot(); toast(errText(e), 5000); console.error(e); return; }
   // Приглашение по ссылке ?invite=КОД
   const inv = new URLSearchParams(location.search).get('invite');
   if (inv && inv.toUpperCase() !== S.me.code) {
@@ -628,3 +746,7 @@ sb.auth.onAuthStateChange((event, session) => {
     S.user = null; clearInterval(timer); showAuth();
   }
 });
+// Вернулись на вкладку — сразу подтянуть новое от друзей
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.user && S.me && !$('#modalRoot .overlay')) refresh(); });
+// Если сеть долго молчит — не держим заставку вечно
+setTimeout(() => { if ($('#boot') && !S.user) showAuth(); }, 8000);

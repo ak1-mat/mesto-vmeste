@@ -1,0 +1,13 @@
+{
+  "name": "Место вместе",
+  "short_name": "Место вместе",
+  "description": "Общая карта мест, которые советуют друзья",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3F4EF",
+  "theme_color": "#2F4BFF",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

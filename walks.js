@@ -197,8 +197,8 @@ function suggestTimes(day, minutes, at) {
 let W = null;
 function openWalkWizard() {
   if (S.places.length < 2) {
-    modal(`<div class="mb"><h2>✨ Собрать прогулку</h2>
-      <div class="empty"><b>Пока мало мест</b>Для маршрута нужно хотя бы 2 места на карте — ваших или друзей. Добавьте места или позовите друзей во вкладке «Друзья».</div></div>`);
+    modal(`<div class="mb"><h2>Собрать прогулку</h2>
+      <div class="empty"><span class="ei">🗺️</span><b>Пока мало мест</b>Для маршрута нужно хотя бы 2 места на карте — ваших или друзей. Добавьте места или позовите друзей во вкладке «Друзья».</div></div>`);
     return;
   }
   const c = map.getCenter();
@@ -231,8 +231,8 @@ function renderWizard(fresh) {
   const dayChips = days.filter((x, i, a) => a.findIndex(y => isoDate(y[1]) === isoDate(x[1])) === i);
   const m = modal(`
     <div class="mb" id="wiz">
-      <h2>✨ Собрать прогулку</h2>
-      <p class="intro">Подберу маршрут по местам друзей, подскажу, кого позвать и во сколько встретиться.</p>
+      <h2>Собрать прогулку</h2>
+      <p class="intro">Выберите настроение и день — маршрут по местам друзей, компания и время встречи подберутся сами.</p>
       <div class="field"><span>Откуда начнём</span><div class="seg">
         <button type="button" class="chip" data-start="geo" aria-pressed="${W.startKind === 'geo'}">📍 Где я сейчас</button>
         <button type="button" class="chip" data-start="map" aria-pressed="${W.startKind === 'map'}">🗺️ Центр карты</button>
@@ -243,8 +243,8 @@ function renderWizard(fresh) {
         <input type="date" class="input datein" id="wday" value="${isoDate(W.day)}" min="${isoDate(addDays(0))}" aria-label="Дата"></div></div>
       ${R ? `
       <div class="wsec">
-        <div class="whead"><div><div class="sec">Маршрут</div><div class="wsum">${R.stops.length} ${R.stops.length < 5 ? 'места' : 'мест'} · ${fmtKm(R.km)} ${R.pathKey === pathKey(R.stops) ? 'по улицам' : 'пешком'} · ~${fmtDur(R.minutes)}</div></div>
-          <button type="button" class="sbtn ghost sm" data-reroll>🔀 Другой вариант</button></div>
+        <div class="whead"><div><div class="sec">Ваш маршрут</div><div class="wsum">${R.stops.length} ${plural(R.stops.length, 'место', 'места', 'мест')} · ${fmtKm(R.km)} ${R.pathKey === pathKey(R.stops) ? 'по улицам' : 'пешком'} · ~${fmtDur(R.minutes)}</div></div>
+          <button type="button" class="sbtn ghost sm" data-reroll>🔀 Другой маршрут</button></div>
         ${R.moodNote ? `<div class="hint">${esc(R.moodNote)}</div>` : ''}
         ${R.farStart ? `<div class="hint">Ближайшее подходящее место в ${fmtKm(R.farStart)} от старта.</div>` : ''}
         <ol class="rlist">${R.stops.map((p, i) => {
@@ -265,7 +265,7 @@ function renderWizard(fresh) {
           </button>`).join('')}</div>` : '<div class="empty">Добавьте друзей во вкладке «Друзья», чтобы звать их гулять.</div>'}
       </div>
       <div class="wsec">
-        <div class="sec">Во сколько встретиться · ${esc(dayLabel(W.day))}</div>
+        <div class="sec">Во сколько встретиться <span class="n">${esc(dayLabel(W.day))}</span></div>
         <div class="tgrid">${W.times.map(t => `<button type="button" class="tchip" data-time="${t.time}" aria-pressed="${W.time === t.time}"><b>${t.time}</b><span>${esc(t.label)}</span><small>${esc(t.hint)}</small></button>`).join('')}</div>
         <label class="field tother"><span>Другое время</span><input type="time" class="input" id="wtime" value="${W.time || ''}"></label>
       </div>
@@ -367,11 +367,13 @@ function renderWizard(fresh) {
 
 /* ---------- Маршрут на карте ---------- */
 let routeLayer = null;
+const routeColor = () => getComputedStyle(document.documentElement).getPropertyValue('--route').trim() || '#2F4BFF';
 function showRoute(planId) {
   const pl = S.plans.find(x => x.id === planId);
   if (!pl || !pl.route?.length) return;
   S.routePlan = planId;
-  drawRoute();
+  if (isMobile()) setTab('map');
+  setTimeout(drawRoute, isMobile() ? 60 : 0);
 }
 function hideRoute() { S.routePlan = null; drawRoute(); }
 function drawRoute() {
@@ -384,8 +386,8 @@ function drawRoute() {
   const line = Array.isArray(pl.path) && pl.path.length > 1 ? pl.path : (pathCache.get(pathKey(pl.route))?.path || pts);
   const street = line !== pts;
   L.polyline(line, { color: '#ffffff', weight: street ? 8 : 9, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
-  L.polyline(line, street ? { color: '#3346F0', weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }
-    : { color: '#3346F0', weight: 5, dashArray: '2 10', lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+  L.polyline(line, street ? { color: routeColor(), weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }
+    : { color: routeColor(), weight: 5, dashArray: '2 10', lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
   if (!street) {
     const id = pl.id;
     fetchFootPath(pl.route).then(fp => { if (fp && S.routePlan === id) drawRoute(); });
@@ -399,9 +401,9 @@ function drawRoute() {
   map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: 16 });
   if (bar) {
     bar.hidden = false;
-    bar.innerHTML = `<div style="min-width:0;flex:1"><div class="rb-t">🚶 ${esc(pl.title)}</div>
+    bar.innerHTML = `<div style="min-width:0;flex:1"><div class="rb-t">${esc(pl.title)}</div>
       <div class="rb-s">${esc(dayLabel(new Date(pl.starts_at)))} · ${hhmm(new Date(pl.starts_at))} · ${fmtKm(Number(pl.km) || 0)} · ~${fmtDur(pl.minutes || 0)}</div></div>
-      <button type="button" class="rb-b" id="rbOpen">План</button><button type="button" class="rb-x" id="rbX" aria-label="Скрыть маршрут">×</button>`;
+      <button type="button" class="rb-b" id="rbOpen">Подробнее</button><button type="button" class="rb-x" id="rbX" aria-label="Скрыть маршрут">×</button>`;
     bar.querySelector('#rbOpen').onclick = () => openWalk(pl.id);
     bar.querySelector('#rbX').onclick = hideRoute;
   }
@@ -429,7 +431,7 @@ function openWalk(id) {
       ${!mine && st ? `<div class="answer">
         <button type="button" class="cta ${st === 'going' ? '' : 'ghost'}" data-ans="going">${st === 'going' ? '✓ Я иду' : '🙋 Иду'}</button>
         <button type="button" class="cta ${st === 'declined' ? 'danger' : 'ghost'}" data-ans="declined">${st === 'declined' ? 'Не смогу ✕' : 'Не смогу'}</button></div>` : ''}
-      <div class="sec">Маршрут · ${pl.route.length}</div>
+      <div class="sec">Маршрут <span class="n">${pl.route.length}</span></div>
       <ol class="rlist">${pl.route.map((p, i) => {
         const c = CATS[p.category] || CATS.other, vis = S.places.some(x => x.id === p.id);
         return `<li class="ritem"><span class="rnum">${i + 1}</span>
@@ -438,7 +440,8 @@ function openWalk(id) {
             <div class="s">${c.n}${i ? ` · ${fmtKm(legKm(pl.route[i - 1], p))} от предыдущего` : ' · место встречи'}</div></div></li>`;
       }).join('')}</ol>
       <button type="button" class="cta ghost" data-show>🗺️ Показать маршрут на карте</button>
-      <div class="sec">Кто идёт · ${going} из ${mem.length + 1}</div>
+      <a class="lbtn" style="align-self:flex-start" target="_blank" rel="noopener noreferrer" href="https://yandex.ru/maps/?rtext=${pl.route.map(p => p.lat + ',' + p.lng).join('~')}&rtt=pd">🧭 Открыть маршрут в Яндекс Картах</a>
+      <div class="sec">Кто идёт <span class="n">${going} из ${mem.length + 1}</span></div>
       <div class="flist">
         <div class="mrow">${avatar(prof(pl.author_id), 'sm')}<b>${mine ? 'Вы' : esc(nameOf(pl.author_id))}</b><span class="mst ok">организатор</span></div>
         ${mem.map(x => `<div class="mrow">${avatar(prof(x.user_id), 'sm')}<b>${esc(nameOf(x.user_id))}</b><span class="mst ${STATUS[x.status][1]}">${STATUS[x.status][0]}</span>
@@ -477,17 +480,17 @@ function openWalk(id) {
 }
 
 /* ---------- Вкладка «Прогулки» ---------- */
-function walkCard(pl) {
+function walkCard(pl, past) {
   const start = new Date(pl.starts_at), st = myStatus(pl), mem = membersOf(pl.id);
   const people = [pl.author_id, ...mem.filter(m => m.status !== 'declined').map(m => m.user_id)];
   const badge = st === 'author' ? '<span class="mst ok">вы организатор</span>'
-    : st === 'invited' ? '<span class="mst wait">ждёт ответа</span>'
+    : st === 'invited' ? '<span class="mst wait">ответьте, пойдёте ли</span>'
     : st === 'going' ? '<span class="mst ok">вы идёте</span>' : '<span class="mst no">не пойдёте</span>';
-  return `<button type="button" class="plcard${st === 'invited' ? ' inv' : ''}" data-walk="${pl.id}">
+  return `<button type="button" class="plcard${st === 'invited' && !past ? ' inv' : ''}${past ? ' past' : ''}" data-walk="${pl.id}">
     <div class="pl-date">${esc(dayLabel(start))} · ${hhmm(start)}</div>
     <div class="pl-t">${esc(pl.title)}</div>
     <div class="pl-m"><span class="stack">${people.slice(0, 6).map(id => avatar(prof(id), 'sm')).join('')}</span>
-      <span>${pl.route.length} ${pl.route.length < 5 ? 'места' : 'мест'} · ${fmtKm(Number(pl.km) || 0)}</span>${badge}</div>
+      <span>${pl.route.length} ${plural(pl.route.length, 'место', 'места', 'мест')}, ${fmtKm(Number(pl.km) || 0)}</span>${badge}</div>
   </button>`;
 }
 function renderWalks(body) {
@@ -498,12 +501,13 @@ function renderWalks(body) {
   const rest = upcoming.filter(p => myStatus(p) !== 'invited');
   const past = list.filter(p => !upcoming.includes(p)).reverse().slice(0, 5);
   body.innerHTML = `
-    <button type="button" class="cta" id="newWalk">✨ Собрать прогулку</button>
-    <p class="intro">Сайт предложит маршрут по местам друзей, подскажет, кого позвать и во сколько встретиться.</p>
-    ${invites.length ? `<div class="sec">Вас зовут · ${invites.length}</div>${invites.map(walkCard).join('')}` : ''}
-    <div class="sec">Ближайшие · ${rest.length}</div>
-    ${rest.length ? rest.map(walkCard).join('') : '<div class="empty">Пока нет запланированных прогулок.</div>'}
-    ${past.length ? `<div class="sec">Прошедшие</div>${past.map(walkCard).join('')}` : ''}`;
+    <div class="ptitle">Прогулки</div>
+    <p class="intro">Сайт соберёт маршрут по местам друзей, подскажет, кого позвать и во сколько встретиться.</p>
+    <button type="button" class="cta" id="newWalk">🚶 Собрать прогулку</button>
+    ${invites.length ? sec('Вас зовут', invites.length) + invites.map(walkCard).join('') : ''}
+    ${sec('Ближайшие', rest.length)}
+    ${rest.length ? rest.map(walkCard).join('') : '<div class="empty"><span class="ei">🌇</span><b>Пока ничего не запланировано</b>Соберите прогулку — друзья получат приглашение здесь же.</div>'}
+    ${past.length ? sec('Прошедшие') + past.map(p => walkCard(p, true)).join('') : ''}`;
   body.querySelector('#newWalk').onclick = openWalkWizard;
   body.querySelectorAll('[data-walk]').forEach(b => b.onclick = () => openWalk(Number(b.dataset.walk)));
 }
