@@ -462,6 +462,7 @@ function openPlace(id) {
       ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
       <div class="links">
         <button type="button" class="lbtn" id="onMap">🗺️ Показать на карте</button>
+        ${typeof togglePick === 'function' && !mine ? `<button type="button" class="lbtn" id="toDay">${CUR.pick.has('f:' + p.id) ? '✓ В маршруте на день' : '🧭 В маршрут на день'}</button>` : ''}
         <a class="lbtn" href="${esc(yandex)}" target="_blank" rel="noopener noreferrer">🧭 Как добраться</a>
         ${p.link ? `<a class="lbtn" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(p.link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32))}</a>` : ''}
       </div>
@@ -475,6 +476,7 @@ function openPlace(id) {
   m.querySelector('#hero')?.addEventListener('click', () => lightbox(p.photo_url));
   m.querySelectorAll('.vis img').forEach(i => i.onclick = () => lightbox(i.dataset.src));
   m.querySelector('#onMap').onclick = () => { closeModal(); showOnMap(p.lat, p.lng, 16); };
+  m.querySelector('#toDay')?.addEventListener('click', e => { const on = togglePick('f:' + p.id); e.target.textContent = on ? '✓ В маршруте на день' : '🧭 В маршрут на день'; toast(on ? 'Добавлено в маршрут на день' : 'Убрано из маршрута'); });
   m.querySelectorAll('.re').forEach(b => b.onclick = async () => {
     const on = b.getAttribute('aria-pressed') === 'true';
     b.disabled = true;
@@ -752,18 +754,20 @@ function renderPanel() {
           <li>Когда друг побывал в вашем месте, вы тоже получаете баллы (+${PTS.visited}).</li>
         </ol>
       </div>`;
+    const strip = typeof curatedStrip === 'function' ? curatedStrip() : '';
     if (!S.friends.length && !mine.length) {
-      body.innerHTML = `${howto}
+      body.innerHTML = `${howto}${strip}
         <div class="empty"><span class="ei">🗺️</span><b>Карта пока пустая</b>Добавьте первое место и позовите друзей — их места станут вашими заданиями.
           <span class="seg" style="justify-content:center"><button class="sbtn" id="emptyAdd">Добавить место</button><button class="sbtn ghost" id="emptyFr">Позвать друзей</button></span></div>`;
     } else {
-      body.innerHTML = `${howto}
+      body.innerHTML = `${howto}${strip}
         <div class="ptitle">Задания от друзей</div>
         ${tasks.length ? `<p class="intro">Места друзей, где вы ещё не были. Придите и сфотографируйте — получите +${PTS.visit}.</p>${tasks.map(placeItem).join('')}`
           : `<div class="empty"><span class="ei">🎉</span><b>Все задания выполнены</b>${S.friends.length ? 'Новые появятся, когда друзья добавят места.' : 'Добавьте друзей — их места станут заданиями.'}</div>`}
         ${mine.length ? sec('Мои места', mine.length) + mine.map(placeItem).join('') : ''}
         ${done.length ? sec('Выполнено', done.length) + done.map(placeItem).join('') : ''}`;
     }
+    if (typeof bindCuratedStrip === 'function') bindCuratedStrip(body);
     body.querySelector('#howtoX')?.addEventListener('click', () => { store.set('mv_howto_hidden', '1'); renderPanel(); });
     body.querySelector('#emptyAdd')?.addEventListener('click', startAdding);
     body.querySelector('#emptyFr')?.addEventListener('click', () => setTab('friends'));
@@ -888,6 +892,7 @@ async function start(session) {
   store.set('mv_invite', '');
   if (location.search.includes('invite')) history.replaceState(null, '', location.pathname);
   if (inv && inv !== S.me.code) addFriend(inv);
+  if (typeof loadCurated === 'function' && !CUR.loaded) loadCurated();
   clearInterval(timer);
   timer = setInterval(() => { if (!document.hidden && !$('#modalRoot .overlay')) refresh(); }, 30000);
 }

@@ -28,7 +28,7 @@ function routeStats(stops) {
 }
 const fmtKm = km => (km < 1 ? Math.round(km * 1000 / 50) * 50 + ' м' : km.toFixed(1).replace('.', ',') + ' км');
 function fmtDur(min) {
-  const h = Math.floor(min / 60), m = Math.round(min % 60 / 5) * 5;
+  const t = Math.round(min / 5) * 5, h = Math.floor(t / 60), m = t % 60;
   return h ? `${h} ч${m ? ' ' + m + ' мин' : ''}` : `${m} мин`;
 }
 const pad = n => String(n).padStart(2, '0');
@@ -396,7 +396,7 @@ function drawRoute() {
     L.marker([p.lat, p.lng], {
       icon: L.divIcon({ className: '', iconSize: [28, 28], iconAnchor: [14, 14], html: `<div class="rpin">${i + 1}</div>` }),
       zIndexOffset: 1000, title: p.title,
-    }).on('click', () => { if (S.places.some(x => x.id === p.id)) openPlace(p.id); else toast(p.title); }).addTo(routeLayer);
+    }).on('click', () => { if (S.places.some(x => x.id === p.id)) openPlace(p.id); else if (typeof CUR !== 'undefined' && CUR.byId.has(p.id)) openCurated(p.id); else toast(p.title); }).addTo(routeLayer);
   });
   map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: 16 });
   if (bar) {
@@ -433,7 +433,7 @@ function openWalk(id) {
         <button type="button" class="cta ${st === 'declined' ? 'danger' : 'ghost'}" data-ans="declined">${st === 'declined' ? 'Не смогу ✕' : 'Не смогу'}</button></div>` : ''}
       <div class="sec">Маршрут <span class="n">${pl.route.length}</span></div>
       <ol class="rlist">${pl.route.map((p, i) => {
-        const c = CATS[p.category] || CATS.other, vis = S.places.some(x => x.id === p.id);
+        const c = CATS[p.category] || CATS.other, vis = S.places.some(x => x.id === p.id) || (typeof CUR !== 'undefined' && CUR.byId.has(p.id));
         return `<li class="ritem"><span class="rnum">${i + 1}</span>
           ${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="">` : `<span class="thumb sm">${c.e}</span>`}
           <div style="min-width:0"><div class="t">${vis ? `<button type="button" class="rname" data-op="${p.id}">${esc(p.title)}</button>` : esc(p.title)}</div>
@@ -451,7 +451,7 @@ function openWalk(id) {
       <button type="button" class="linkbtn warn" data-leave>${mine ? 'Отменить прогулку' : 'Выйти из прогулки'}</button>
     </div>`);
   m.querySelector('[data-show]').onclick = () => { closeModal(); showRoute(pl.id); };
-  m.querySelectorAll('[data-op]').forEach(b => b.onclick = () => openPlace(Number(b.dataset.op)));
+  m.querySelectorAll('[data-op]').forEach(b => b.onclick = () => { const id = b.dataset.op; if (/^m-/.test(id)) openCurated(id); else openPlace(Number(id)); });
   m.querySelectorAll('[data-ans]').forEach(b => b.onclick = async () => {
     const { error } = await sb.from('plan_members').update({ status: b.dataset.ans, updated_at: new Date().toISOString() })
       .match({ plan_id: pl.id, user_id: S.user.id });
@@ -503,12 +503,16 @@ function renderWalks(body) {
   body.innerHTML = `
     <div class="ptitle">Прогулки</div>
     <p class="intro">Сайт соберёт маршрут по местам друзей, подскажет, кого позвать и во сколько встретиться.</p>
-    <button type="button" class="cta" id="newWalk">🚶 Собрать прогулку</button>
+    <div class="wcta">
+      <button type="button" class="cta" id="newWalk">🚶 Прогулка с друзьями</button>
+      <button type="button" class="cta ghost" id="newDay">🧭 Маршрут по городу на день</button>
+    </div>
     ${invites.length ? sec('Вас зовут', invites.length) + invites.map(walkCard).join('') : ''}
     ${sec('Ближайшие', rest.length)}
     ${rest.length ? rest.map(walkCard).join('') : '<div class="empty"><span class="ei">🌇</span><b>Пока ничего не запланировано</b>Соберите прогулку — друзья получат приглашение здесь же.</div>'}
     ${past.length ? sec('Прошедшие') + past.map(p => walkCard(p, true)).join('') : ''}`;
   body.querySelector('#newWalk').onclick = openWalkWizard;
+  body.querySelector('#newDay').onclick = () => (typeof openDayPlanner === 'function' ? openDayPlanner() : null);
   body.querySelectorAll('[data-walk]').forEach(b => b.onclick = () => openWalk(Number(b.dataset.walk)));
 }
 function walkInvitesCount() {
