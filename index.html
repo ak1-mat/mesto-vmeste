@@ -36,23 +36,49 @@
   <div class="acard">
     <h2 id="authTitle">Вход</h2>
     <p class="invite" id="serverHint"></p>
-    <div class="switch" role="group" aria-label="Вход или регистрация">
-      <button type="button" data-mode="login" aria-pressed="true">Вход</button>
-      <button type="button" data-mode="signup" aria-pressed="false">Регистрация</button>
+    <div id="otpBox" class="abox">
+      <form id="otpEmailForm" class="form" novalidate>
+        <p class="lead">Введите почту — пришлём код для входа. Если вы здесь впервые, аккаунт создастся сам.</p>
+        <label class="field"><span>Почта</span>
+          <input type="email" name="email" required autocomplete="email" inputmode="email" placeholder="you@mail.ru" id="otpEmail">
+        </label>
+        <div class="err" id="otpErr" role="alert"></div>
+        <button class="cta" type="submit" id="otpSend">Получить код</button>
+      </form>
+      <form id="otpCodeForm" class="form" novalidate hidden>
+        <p class="lead">Отправили письмо на <b id="otpTo"></b>. Введите код из него — или просто нажмите в письме кнопку входа. Если письма нет минуту, загляните в «Спам».</p>
+        <label class="field"><span>Код из письма</span>
+          <input class="codein" type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" id="otpCode">
+        </label>
+        <div class="err" id="codeErr" role="alert"></div>
+        <button class="cta" type="submit" id="codeBtn">Войти</button>
+        <div class="arow">
+          <button type="button" class="linkbtn" id="otpResend">Отправить код ещё раз</button>
+          <button type="button" class="linkbtn" id="otpBack">Другая почта</button>
+        </div>
+      </form>
+      <button type="button" class="linkbtn alt" id="toPass">Войти с паролем</button>
     </div>
-    <form id="authForm" class="form" novalidate>
-      <label class="field" id="nameField" hidden><span>Имя</span>
-        <input type="text" name="name" maxlength="40" autocomplete="nickname" placeholder="Как вас зовут друзья">
-      </label>
-      <label class="field"><span>Почта</span>
-        <input type="email" name="email" required autocomplete="email" inputmode="email" placeholder="you@mail.ru">
-      </label>
-      <label class="field"><span>Пароль</span>
-        <input type="password" name="password" required minlength="6" autocomplete="current-password" placeholder="Не меньше 6 символов">
-      </label>
-      <div class="err" id="authErr" role="alert"></div>
-      <button class="cta" type="submit" id="authBtn">Войти</button>
-    </form>
+    <div id="passBox" class="abox" hidden>
+      <div class="switch" role="group" aria-label="Вход или регистрация">
+        <button type="button" data-mode="login" aria-pressed="true">Вход</button>
+        <button type="button" data-mode="signup" aria-pressed="false">Регистрация</button>
+      </div>
+      <form id="authForm" class="form" novalidate>
+        <label class="field" id="nameField" hidden><span>Имя</span>
+          <input type="text" name="name" maxlength="40" autocomplete="nickname" placeholder="Как вас зовут друзья">
+        </label>
+        <label class="field"><span>Почта</span>
+          <input type="email" name="email" required autocomplete="email" inputmode="email" placeholder="you@mail.ru">
+        </label>
+        <label class="field"><span>Пароль</span>
+          <input type="password" name="password" required minlength="6" autocomplete="current-password" placeholder="Не меньше 6 символов">
+        </label>
+        <div class="err" id="authErr" role="alert"></div>
+        <button class="cta" type="submit" id="authBtn">Войти</button>
+      </form>
+      <button type="button" class="linkbtn alt" id="toOtp">Войти по коду из почты</button>
+    </div>
   </div>
 </section>
 

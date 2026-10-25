@@ -98,21 +98,104 @@ async function uploadPhoto(blob) {
 }
 
 /* ---------- Вход ---------- */
-let authMode = 'login';
+// Основной способ — код из письма. Пароль оставлен запасным.
+const OTP_LEN = 6;                 // длина кода в письме (Supabase → Auth → Email OTP Length)
+let authMode = 'login', otpEmail = '', resendAt = 0, resendTimer = null;
 function hideBoot() { $('#boot')?.remove(); }
+function setAuthBox(box) {
+  $('#otpBox').hidden = box !== 'otp';
+  $('#passBox').hidden = box !== 'pass';
+  $('#authTitle').textContent = box === 'otp' ? 'Вход по почте' : authMode === 'signup' ? 'Регистрация' : 'Вход с паролем';
+  store.set('mv_auth_box', box);
+  ['#otpErr', '#codeErr', '#authErr'].forEach(id => ($(id).textContent = ''));
+}
 function showAuth() {
   hideBoot();
   $('#app').hidden = true; $('#auth').hidden = false;
-  if (new URLSearchParams(location.search).get('invite')) {
-    $('#serverHint').textContent = 'Вас пригласил друг. Зарегистрируйтесь или войдите — и вы сразу станете друзьями.';
-    if (!store.get('mv_seen')) document.querySelector('.switch [data-mode="signup"]').click();
+  setAuthBox(store.get('mv_auth_box') === 'pass' ? 'pass' : 'otp');
+  // Ссылка из письма устарела или уже использована
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('error')) {
+    setAuthBox('otp');
+    $('#otpErr').textContent = 'Ссылка из письма устарела или уже использована. Запросите новый код.';
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  const inv = new URLSearchParams(location.search).get('invite');
+  if (inv) store.set('mv_invite', inv.toUpperCase());   // переживёт переход по ссылке из письма
+  if (inv || store.get('mv_invite')) {
+    $('#serverHint').textContent = 'Вас пригласил друг. Войдите по почте — и вы сразу станете друзьями.';
   }
 }
+$('#toPass').onclick = () => { setAuthBox('pass'); const e = $('#otpEmail').value.trim(); if (e) $('#authForm [name=email]').value = e; };
+$('#toOtp').onclick = () => { setAuthBox('otp'); const e = $('#authForm [name=email]').value.trim(); if (e) $('#otpEmail').value = e; };
+
+function otpErrText(e) {
+  const m = e?.message || String(e);
+  if (/only request this after (\d+)/i.test(m)) return `Код уже отправлен. Новый можно запросить через ${m.match(/after (\d+)/i)[1]} с.`;
+  if (/rate limit|too many/i.test(m)) return 'Писем было слишком много. Подождите немного или войдите с паролем.';
+  if (/not authorized|sending (magic link|confirmation|.*email)|smtp/i.test(m)) return 'NOMAIL';
+  if (/expired|invalid|token/i.test(m)) return 'Код не подошёл или устарел. Проверьте цифры или запросите новый.';
+  if (/signups? not allowed/i.test(m)) return 'Регистрация сейчас закрыта. Напишите организатору сайта.';
+  return errText(e);
+}
+function tickResend() {
+  const left = Math.ceil((resendAt - Date.now()) / 1000), b = $('#otpResend');
+  b.disabled = left > 0;
+  b.textContent = left > 0 ? `Отправить ещё раз через ${left} с` : 'Отправить код ещё раз';
+  if (left <= 0) clearInterval(resendTimer);
+}
+async function sendCode(email, btn, errEl) {
+  errEl.textContent = '';
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Отправляю…';
+  const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
+  btn.disabled = false; btn.textContent = label;
+  if (error) {
+    const t = otpErrText(error);
+    if (t === 'NOMAIL') {
+      // Почта-отправитель ещё не настроена: письмо на этот адрес не уйдёт
+      setAuthBox('pass'); $('#authForm [name=email]').value = email;
+      $('#authErr').textContent = 'Код на эту почту пока не отправить. Войдите с паролем или зарегистрируйтесь — это работает как раньше.';
+      return false;
+    }
+    errEl.textContent = t; return false;
+  }
+  otpEmail = email; resendAt = Date.now() + 60000;
+  clearInterval(resendTimer); resendTimer = setInterval(tickResend, 1000); tickResend();
+  return true;
+}
+$('#otpEmailForm').onsubmit = async e => {
+  e.preventDefault();
+  const email = $('#otpEmail').value.trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return ($('#otpErr').textContent = 'Введите почту, например you@mail.ru');
+  if (!(await sendCode(email, $('#otpSend'), $('#otpErr')))) return;
+  $('#otpTo').textContent = email;
+  $('#otpEmailForm').hidden = true; $('#otpCodeForm').hidden = false;
+  $('#otpCode').value = ''; $('#otpCode').focus();
+};
+$('#otpBack').onclick = () => { $('#otpCodeForm').hidden = true; $('#otpEmailForm').hidden = false; $('#codeErr').textContent = ''; $('#otpEmail').focus(); };
+$('#otpResend').onclick = async () => { if (await sendCode(otpEmail, $('#otpResend'), $('#codeErr'))) { toast('Новый код отправлен'); tickResend(); } };
+$('#otpCode').oninput = e => {
+  const v = e.target.value.replace(/\D/g, '').slice(0, 10);
+  if (v !== e.target.value) e.target.value = v;
+  $('#codeErr').textContent = '';
+  if (v.length === OTP_LEN) $('#otpCodeForm').requestSubmit();
+};
+$('#otpCodeForm').onsubmit = async e => {
+  e.preventDefault();
+  const token = $('#otpCode').value.replace(/\D/g, ''), err = $('#codeErr'), btn = $('#codeBtn');
+  if (token.length < 6) return (err.textContent = 'Введите код из письма целиком');
+  btn.disabled = true; btn.textContent = 'Проверяю…';
+  const { error } = await sb.auth.verifyOtp({ email: otpEmail, token, type: 'email' });
+  btn.disabled = false; btn.textContent = 'Войти';
+  if (error) { err.textContent = otpErrText(error); $('#otpCode').select(); }
+  // при успехе сработает onAuthStateChange → start()
+};
+
 document.querySelectorAll('.switch button').forEach(b => b.onclick = () => {
   authMode = b.dataset.mode;
   document.querySelectorAll('.switch button').forEach(x => x.setAttribute('aria-pressed', x === b));
   $('#nameField').hidden = authMode !== 'signup';
-  $('#authTitle').textContent = authMode === 'signup' ? 'Регистрация' : 'Вход';
+  $('#authTitle').textContent = authMode === 'signup' ? 'Регистрация' : 'Вход с паролем';
   $('#authBtn').textContent = authMode === 'signup' ? 'Создать аккаунт' : 'Войти';
   $('#authForm [name=password]').autocomplete = authMode === 'signup' ? 'new-password' : 'current-password';
   $('#authErr').textContent = '';
@@ -387,7 +470,7 @@ function openPlace(id) {
       <div class="sec">Здесь побывали <span class="n">${visits.length}</span></div>
       ${visits.length ? `<div class="visits">${visits.map(v => `<div class="vis"><img src="${esc(v.photo_url)}" alt="" loading="lazy" data-src="${esc(v.photo_url)}"><div class="vi">${avatar(prof(v.user_id), 'sm')}<b>${esc(nameOf(v.user_id))}</b><span>${ago(v.created_at)}</span></div></div>`).join('')}</div>`
         : `<p class="intro">Пока никто. ${mine ? 'Позовите друзей — для них это задание.' : 'Будьте первым!'}</p>`}
-      ${mine ? '<button class="linkbtn warn" id="delPlace">Удалить место</button>' : ''}
+      ${mine ? '<div class="arow"><button class="sbtn ghost sm" id="editPlace">✏️ Изменить</button><button class="linkbtn warn" id="delPlace">Удалить место</button></div>' : ''}
     </div>`);
   m.querySelector('#hero')?.addEventListener('click', () => lightbox(p.photo_url));
   m.querySelectorAll('.vis img').forEach(i => i.onclick = () => lightbox(i.dataset.src));
@@ -404,12 +487,83 @@ function openPlace(id) {
     const md = $('.modal'); if (md) md.scrollTop = st;
   });
   m.querySelector('#doTask')?.addEventListener('click', () => openCamera(p));
+  m.querySelector('#editPlace')?.addEventListener('click', () => openEditPlace(p));
   m.querySelector('#delPlace')?.addEventListener('click', async () => {
     if (!confirm('Удалить место «' + p.title + '»? Это нельзя отменить.')) return;
     const { error } = await sb.from('places').delete().eq('id', p.id);
     if (error) return toast(errText(error));
     closeModal(); toast('Место удалено'); refresh();
   });
+}
+
+/* Изменить своё место */
+function openEditPlace(p) {
+  let cat = p.category in CATS ? p.category : 'other', file = null;
+  const m = modal(`
+    <div class="mb">
+      <h2>Изменить место</h2>
+      <form class="form" id="ef" novalidate>
+        <label class="field"><span>Название</span><input type="text" name="title" maxlength="80" value="${esc(p.title)}" required></label>
+        <div class="field"><span>Что это за место</span><div class="catgrid" id="ecats">${Object.entries(CATS).map(([k, c]) => `<button type="button" class="chip" data-c="${k}" aria-pressed="${k === cat}">${c.e} ${c.n}</button>`).join('')}</div></div>
+        <label class="field"><span>Чем оно крутое</span><textarea name="note" maxlength="1000">${esc(p.note || '')}</textarea></label>
+        <label class="drop"><input type="file" accept="image/*" id="efile">${p.photo_url ? `<img id="eprev" src="${esc(p.photo_url)}" alt="">` : '<span class="thumb" id="eprev">📷</span>'}<span class="dt"><b>${p.photo_url ? 'Заменить фото' : 'Добавить фото'}</b>Необязательно</span></label>
+        <label class="field"><span>Ссылка <em class="hint">· необязательно</em></span><input type="text" name="link" maxlength="500" inputmode="url" value="${esc(p.link || '')}" placeholder="https://"></label>
+        <div class="err" id="eerr"></div>
+        <button class="cta" type="submit" id="esave">Сохранить изменения</button>
+      </form>
+    </div>`, () => openPlace(p.id));
+  m.querySelectorAll('#ecats .chip').forEach(b => b.onclick = () => { cat = b.dataset.c; m.querySelectorAll('#ecats .chip').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  m.querySelector('#efile').onchange = e => {
+    file = e.target.files[0] || null;
+    if (file) m.querySelector('#eprev').outerHTML = `<img id="eprev" src="${URL.createObjectURL(file)}" alt="">`;
+  };
+  m.querySelector('#ef').onsubmit = async e => {
+    e.preventDefault();
+    const f = new FormData(e.target), errEl = m.querySelector('#eerr');
+    const title = String(f.get('title')).trim();
+    let link = String(f.get('link')).trim();
+    if (!title) return (errEl.textContent = 'Напишите название');
+    if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
+    const btn = m.querySelector('#esave'); btn.disabled = true; btn.textContent = 'Сохраняю…';
+    try {
+      const upd = { title, note: String(f.get('note')).trim() || null, link: link || null, category: cat };
+      if (file) upd.photo_url = await uploadPhoto(await compress(file));
+      const { error } = await sb.from('places').update(upd).eq('id', p.id);
+      if (error) throw error;
+      $('#modalRoot .overlay')._onClose = null; closeModal();
+      toast('Изменения сохранены');
+      await refresh(false); openPlace(p.id);
+    } catch (ex) { errEl.textContent = errText(ex); btn.disabled = false; btn.textContent = 'Сохранить изменения'; }
+  };
+}
+
+/* Знакомство: новичок, вошедший по коду, называет себя и выбирает аватар */
+function needsWelcome() {
+  const pre = (S.user?.email || '').split('@')[0].slice(0, 40);
+  return S.me && !S.me.avatar && S.me.name === pre && !store.get('mv_welcomed_' + S.user.id);
+}
+function openWelcome() {
+  let av = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+  const m = modal(`
+    <div class="mb">
+      <h2>Добро пожаловать!</h2>
+      <p class="intro">Как вас будут видеть друзья на карте и в рейтинге.</p>
+      <form class="form" id="wf" novalidate>
+        <label class="field"><span>Имя</span><input type="text" name="name" maxlength="40" placeholder="Например: Маша" autocomplete="given-name"></label>
+        <div class="field"><span>Аватар</span><div class="emogrid">${AVATARS.map(a => `<button type="button" class="emo-o" data-a="${a}" aria-pressed="${a === av}">${a}</button>`).join('')}</div></div>
+        <div class="err" id="wferr"></div>
+        <button class="cta" type="submit">Готово</button>
+      </form>
+    </div>`, () => store.set('mv_welcomed_' + S.user.id, '1'));
+  m.querySelectorAll('.emo-o').forEach(b => b.onclick = () => { av = b.dataset.a; m.querySelectorAll('.emo-o').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  m.querySelector('#wf').onsubmit = async e => {
+    e.preventDefault();
+    const name = String(new FormData(e.target).get('name')).trim();
+    if (!name) return (m.querySelector('#wferr').textContent = 'Напишите имя — так друзья вас узнают');
+    const { error } = await sb.from('profiles').update({ name, avatar: av }).eq('id', S.user.id);
+    if (error) return (m.querySelector('#wferr').textContent = errText(error));
+    closeModal(); toast(`Приятно познакомиться, ${name}!`); refresh();
+  };
 }
 
 /* Камера для задания: снимок только «вживую» */
@@ -727,14 +881,13 @@ async function start(session) {
   setTab(isMobile() ? 'map' : S.tab === 'map' ? 'tasks' : S.tab);
   setTimeout(() => map.invalidateSize(), 50);
   store.set('mv_seen', '1');
-  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); }
+  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); if (needsWelcome()) openWelcome(); }
   catch (e) { hideBoot(); toast(errText(e), 5000); console.error(e); return; }
   // Приглашение по ссылке ?invite=КОД
-  const inv = new URLSearchParams(location.search).get('invite');
-  if (inv && inv.toUpperCase() !== S.me.code) {
-    history.replaceState(null, '', location.pathname);
-    addFriend(inv.toUpperCase());
-  }
+  const inv = (new URLSearchParams(location.search).get('invite') || store.get('mv_invite') || '').toUpperCase();
+  store.set('mv_invite', '');
+  if (location.search.includes('invite')) history.replaceState(null, '', location.pathname);
+  if (inv && inv !== S.me.code) addFriend(inv);
   clearInterval(timer);
   timer = setInterval(() => { if (!document.hidden && !$('#modalRoot .overlay')) refresh(); }, 30000);
 }

@@ -74,6 +74,15 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .sticker.s1{transform:rotate(-6deg)}.sticker.s2{transform:rotate(4deg);background:var(--mark);border-color:transparent}.sticker.s3{transform:rotate(-3deg)}
 .acard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);width:100%;box-shadow:var(--sh-2);padding:28px 26px 24px;display:flex;flex-direction:column;gap:18px}
 .acard h2{font-family:var(--f-display);font-weight:700;font-size:24px}
+.abox{display:flex;flex-direction:column;gap:16px}
+.acard .lead{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.acard .lead b{color:var(--ink);font-weight:700;overflow-wrap:anywhere}
+.codein{font-family:var(--f-display)!important;font-size:26px!important;font-weight:700!important;letter-spacing:.32em;text-align:center;padding:14px 10px!important}
+.codein::placeholder{letter-spacing:.32em;opacity:.3}
+.arow{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.arow .linkbtn{padding:2px 0}
+.linkbtn:disabled{opacity:.6;cursor:default;text-decoration:none}
+.linkbtn.alt{align-self:center;color:var(--ink)}
 .switch{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:var(--r-m);padding:4px;gap:4px}
 .switch button{border:0;background:none;border-radius:11px;padding:10px;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
 .switch button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--sh-1)}
