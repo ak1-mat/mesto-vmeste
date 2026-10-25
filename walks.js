@@ -23,7 +23,7 @@ function routeStats(stops) {
   let km = 0;
   for (let i = 1; i < stops.length; i++) km += legKm(stops[i - 1], stops[i]);
   const walk = km / WALK_KMH * 60;
-  const dwell = stops.reduce((s, p) => s + (DWELL[p.category] ?? 20), 0);
+  const dwell = stops.reduce((s, p) => s + (p.mins ?? DWELL[p.category] ?? 20), 0);
   return { km, minutes: Math.round(walk + dwell) };
 }
 const fmtKm = km => (km < 1 ? Math.round(km * 1000 / 50) * 50 + ' м' : km.toFixed(1).replace('.', ',') + ' км');
@@ -421,6 +421,7 @@ function openWalk(id) {
   const mem = membersOf(pl.id);
   const going = mem.filter(m => m.status === 'going').length + 1;
   const canInvite = mine ? S.friends.filter(f => !mem.some(m => m.user_id === f.id)) : [];
+  const canEdit = mine || st === 'going' || st === 'invited';
   const m = modal(`
     <div class="mb">
       <div class="pl-date">${esc(dayLabel(start))} · ${hhmm(start)}</div>
@@ -434,11 +435,18 @@ function openWalk(id) {
       <div class="sec">Маршрут <span class="n">${pl.route.length}</span></div>
       <ol class="rlist">${pl.route.map((p, i) => {
         const c = CATS[p.category] || CATS.other, vis = S.places.some(x => x.id === p.id) || (typeof CUR !== 'undefined' && CUR.byId.has(p.id));
-        return `<li class="ritem"><span class="rnum">${i + 1}</span>
+        const by = p.added_by && p.added_by !== pl.author_id ? p.added_by : null;
+        const canDel = pl.route.length > 1 && (mine || (by && by === S.user.id));
+        return `<li class="ritem${by ? ' added' : ''}"><span class="rnum">${i + 1}</span>
           ${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="">` : `<span class="thumb sm">${c.e}</span>`}
           <div style="min-width:0"><div class="t">${vis ? `<button type="button" class="rname" data-op="${p.id}">${esc(p.title)}</button>` : esc(p.title)}</div>
-            <div class="s">${c.n}${i ? ` · ${fmtKm(legKm(pl.route[i - 1], p))} от предыдущего` : ' · место встречи'}</div></div></li>`;
+            <div class="s">${c.n}${i ? ` · ${fmtKm(legKm(pl.route[i - 1], p))} от предыдущего` : ' · место встречи'}${by ? ` · <span class="addby">${avatar(prof(by), 'xs')} добавил${by === S.user.id ? 'и вы' : ': ' + esc(nameOf(by))}</span>` : ''}</div></div>
+          ${canDel ? `<button type="button" class="rdel" data-del="${esc(String(p.id))}" aria-label="Убрать «${esc(p.title)}» из маршрута">×</button>` : ''}</li>`;
       }).join('')}</ol>
+      ${canEdit ? `<div class="addwalk">
+        <button type="button" class="cta ghost" data-addpt>➕ Добавить своё место в маршрут</button>
+        <p class="hint">${mine ? 'Друзья тоже могут добавлять места — маршрут пересчитается для всех.' : 'Хотите заглянуть куда-то ещё? Добавьте место — его увидят все участники.'}</p>
+        ${mine && pl.route.length >= 3 ? '<button type="button" class="linkbtn" data-reorder>🔀 Пересчитать порядок, чтобы идти меньше</button>' : ''}</div>` : ''}
       <button type="button" class="cta ghost" data-show>🗺️ Показать маршрут на карте</button>
       <a class="lbtn" style="align-self:flex-start" target="_blank" rel="noopener noreferrer" href="https://yandex.ru/maps/?rtext=${pl.route.map(p => p.lat + ',' + p.lng).join('~')}&rtt=pd">🧭 Открыть маршрут в Яндекс Картах</a>
       <div class="sec">Кто идёт <span class="n">${going} из ${mem.length + 1}</span></div>
@@ -447,10 +455,15 @@ function openWalk(id) {
         ${mem.map(x => `<div class="mrow">${avatar(prof(x.user_id), 'sm')}<b>${esc(nameOf(x.user_id))}</b><span class="mst ${STATUS[x.status][1]}">${STATUS[x.status][0]}</span>
           ${mine ? `<button type="button" class="linkbtn" data-kick="${x.user_id}">убрать</button>` : ''}</div>`).join('')}
       </div>
-      ${canInvite.length ? `<div class="sec">Позвать ещё</div><div class="seg">${canInvite.map(f => `<button type="button" class="chip" data-inv="${f.id}">${avatar(f, 'sm')} ${esc(f.name)}</button>`).join('')}</div>` : ''}
+      ${canInvite.length ? `<div class="sec">${mem.length ? 'Позвать ещё' : 'Позвать друзей'}</div>
+        <p class="hint">Друзья увидят маршрут, ответят «иду» или «не смогу» и смогут добавить свои места.</p>
+        <div class="seg">${canInvite.map(f => `<button type="button" class="chip" data-inv="${f.id}">${avatar(f, 'sm')} ${esc(f.name)}</button>`).join('')}</div>` : ''}
       <button type="button" class="linkbtn warn" data-leave>${mine ? 'Отменить прогулку' : 'Выйти из прогулки'}</button>
     </div>`);
   m.querySelector('[data-show]').onclick = () => { closeModal(); showRoute(pl.id); };
+  m.querySelector('[data-addpt]')?.addEventListener('click', () => openAddToWalk(pl.id));
+  m.querySelector('[data-reorder]')?.addEventListener('click', () => reorderWalk(pl.id));
+  m.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePointFromWalk(pl.id, b.dataset.del));
   m.querySelectorAll('[data-op]').forEach(b => b.onclick = () => { const id = b.dataset.op; if (/^m-/.test(id)) openCurated(id); else openPlace(Number(id)); });
   m.querySelectorAll('[data-ans]').forEach(b => b.onclick = async () => {
     const { error } = await sb.from('plan_members').update({ status: b.dataset.ans, updated_at: new Date().toISOString() })
@@ -477,6 +490,110 @@ function openWalk(id) {
     if (S.routePlan === pl.id) hideRoute();
     closeModal(); toast(mine ? 'Прогулка отменена' : 'Вы вышли из прогулки'); refresh();
   };
+}
+
+/* ---------- Совместный маршрут: друзья добавляют свои места ---------- */
+const WALK_CAT = { eat: 'food', culture: 'culture', photo: 'photo', walk: 'walk' };
+function rpcErr(e) {
+  const t = (e?.message || '') + ' ' + (e?.code || '');
+  if (/Could not find the function|PGRST202|does not exist|schema cache/i.test(t)) return 'Добавление мест друзьями заработает после обновления базы данных — организатору нужно один раз выполнить SQL из инструкции.';
+  if (/already in route/.test(t)) return 'Это место уже есть в маршруте';
+  if (/too many points/.test(t)) return 'В маршруте уже 30 мест — больше не поместится';
+  if (/not a member/.test(t)) return 'Добавлять места могут только участники прогулки';
+  if (/only the organizer/.test(t)) return 'Убрать место может организатор или тот, кто его добавил';
+  return errText(e);
+}
+// Куда вставить новое место, чтобы идти меньше всего (место встречи остаётся первым)
+function bestInsert(route, p) {
+  let bi = route.length, best = Infinity;
+  for (let i = route.length ? 1 : 0; i <= route.length; i++) {
+    const r = [...route.slice(0, i), p, ...route.slice(i)];
+    const k = routeStats(r).km;
+    if (k < best - 1e-9) { best = k; bi = i; }
+  }
+  return bi;
+}
+function walkCandidates(pl, q) {
+  const inRoute = new Set(pl.route.map(p => String(p.id)));
+  const ql = (q || '').trim().toLowerCase();
+  const fr = S.places.map(p => ({ id: p.id, title: p.title, lat: p.lat, lng: p.lng, category: p.category, photo_url: p.photo_url || null, mins: DWELL[p.category] ?? 30,
+    src: p.author_id === S.user.id ? 'ваше место' : 'место ' + nameOf(p.author_id), txt: p.title + ' ' + (p.note || '') }));
+  const cu = typeof CUR !== 'undefined' ? CUR.list.map(p => ({ id: p.id, title: p.name, lat: p.lat, lng: p.lng, category: WALK_CAT[p.cat], photo_url: p.img || null, mins: p.mins,
+    src: CUR_CATS[p.cat].n.toLowerCase() + (p.price ? ' · ' + PRICE[p.price] : ''), txt: p.name + ' ' + p.desc, pop: p.pop || 0 })) : [];
+  return [...fr, ...cu].filter(p => !inRoute.has(String(p.id)) && (!ql || p.txt.toLowerCase().includes(ql)))
+    .map(p => ({ ...p, d: Math.min(...pl.route.map(r => hav(r, p))) })).sort((a, b) => (a.d - (a.src.startsWith('место') || a.src.startsWith('ваше') ? 0.6 : 0)) - (b.d - (b.src.startsWith('место') || b.src.startsWith('ваше') ? 0.6 : 0)));
+}
+function openAddToWalk(id, q = '') {
+  const pl = S.plans.find(x => x.id === id); if (!pl) return;
+  const list = walkCandidates(pl, q).slice(0, 40);
+  const m = modal(`
+    <div class="mb">
+      <h2>Добавить место</h2>
+      <p class="intro">Выберите, куда ещё хочется зайти. Место встанет в маршрут там, где придётся меньше всего идти, — все участники увидят изменения.</p>
+      <input class="input" id="awQ" type="search" placeholder="Найти: кофе, музей, парк…" value="${esc(q)}" aria-label="Поиск места">
+      <div class="clist">${list.length ? list.map(p => `
+        <div class="citem">
+          <div class="ci-main" style="cursor:default">
+            ${p.photo_url ? `<img class="thumb" src="${esc(p.photo_url)}" alt="" loading="lazy">` : `<span class="thumb">${(CATS[p.category] || CATS.other).e}</span>`}
+            <span class="ci-t"><b>${esc(p.title)}</b><em>${esc(p.src)} · ${fmtKm(p.d)} от маршрута</em></span>
+          </div>
+          <button type="button" class="ci-add" data-pick="${esc(String(p.id))}" aria-label="Добавить «${esc(p.title)}» в маршрут">+</button>
+        </div>`).join('') : '<div class="empty">Ничего не нашлось — попробуйте другое слово.</div>'}</div>
+      <button type="button" class="linkbtn" id="awBack">← Назад к прогулке</button>
+    </div>`);
+  let t; m.querySelector('#awQ').oninput = e => { clearTimeout(t); t = setTimeout(() => { const v = e.target.value; openAddToWalk(id, v); const i = $('#awQ'); i.focus(); i.setSelectionRange(v.length, v.length); }, 250); };
+  m.querySelector('#awBack').onclick = () => openWalk(id);
+  m.querySelectorAll('[data-pick]').forEach(b => b.onclick = async () => {
+    const it = list.find(x => String(x.id) === b.dataset.pick); if (!it) return;
+    b.disabled = true; b.textContent = '…';
+    await addPointToWalk(pl, it);
+  });
+}
+async function addPointToWalk(pl, it) {
+  const p = { id: it.id, title: it.title, lat: it.lat, lng: it.lng, category: it.category, photo_url: it.photo_url, mins: it.mins };
+  const i = bestInsert(pl.route, p);
+  const st = routeStats([...pl.route.slice(0, i), p, ...pl.route.slice(i)]);
+  const { error } = await sb.rpc('plan_add_point', { p_plan: pl.id, p_point: p, p_index: i, p_km: Math.round(st.km * 100) / 100, p_minutes: st.minutes });
+  if (error) { toast(rpcErr(error), 5000); return openWalk(pl.id); }
+  toast(`«${it.title}» в маршруте — ${i + 1}-я точка`, 3000);
+  pathCache.delete?.(pathKey(pl.route));
+  await refresh(false);
+  if (S.routePlan === pl.id) drawRoute();
+  openWalk(pl.id);
+}
+async function removePointFromWalk(id, pid) {
+  const pl = S.plans.find(x => x.id === id); if (!pl) return;
+  const p = pl.route.find(x => String(x.id) === pid); if (!p) return;
+  if (!confirm(`Убрать «${p.title}» из маршрута?`)) return;
+  const st = routeStats(pl.route.filter(x => String(x.id) !== pid));
+  const { error } = await sb.rpc('plan_remove_point', { p_plan: id, p_id: pid, p_km: Math.round(st.km * 100) / 100, p_minutes: st.minutes });
+  if (error) return toast(rpcErr(error), 5000);
+  toast('Место убрано из маршрута');
+  await refresh(false);
+  if (S.routePlan === id) drawRoute();
+  openWalk(id);
+}
+// Организатор может переставить места, чтобы идти меньше (место встречи остаётся первым)
+async function reorderWalk(id) {
+  const pl = S.plans.find(x => x.id === id); if (!pl || pl.route.length < 3) return;
+  const [first, ...rest] = pl.route;
+  let best = rest.slice(), bestKm = routeStats([first, ...best]).km, improved = true, guard = 0;
+  while (improved && guard++ < 50) {
+    improved = false;
+    for (let i = 0; i < best.length - 1; i++) for (let k = i + 1; k < best.length; k++) {
+      const cand = [...best.slice(0, i), ...best.slice(i, k + 1).reverse(), ...best.slice(k + 1)];
+      const km = routeStats([first, ...cand]).km;
+      if (km < bestKm - 1e-6) { best = cand; bestKm = km; improved = true; }
+    }
+  }
+  const route = [first, ...best], st = routeStats(route);
+  if (route.every((p, i) => p === pl.route[i])) return toast('Порядок уже самый короткий 👌');
+  const { error } = await sb.from('plans').update({ route, km: Math.round(st.km * 100) / 100, minutes: st.minutes, path: null }).eq('id', id);
+  if (error) return toast(errText(error));
+  toast(`Готово: теперь ${fmtKm(st.km)} пешком`);
+  await refresh(false);
+  if (S.routePlan === id) drawRoute();
+  openWalk(id);
 }
 
 /* ---------- Вкладка «Прогулки» ---------- */

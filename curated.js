@@ -1,4 +1,4 @@
-/* «Место вместе» — подборка «Москва: 100 мест» и маршрут на день. */
+/* «Место вместе» — подборка «Москва: 500 мест», опрос интересов и маршрут на день. */
 'use strict';
 
 const CUR_CATS = {
@@ -23,13 +23,18 @@ async function loadCurated() {
     CUR.on = store.get('mv_cur_on') !== '0';
     const cats = store.get('mv_cur_cats'); if (cats) CUR.cats = new Set(cats.split(',').filter(k => k in CUR_CATS));
     const pick = store.get('mv_day_pick'); if (pick) CUR.pick = new Set(pick.split('|').filter(Boolean));
-    const r = await fetch('moscow.json?v=20261026', { cache: 'no-cache' });
+    QUIZ = loadQuiz();
+    const r = await fetch('moscow.json?v=20261027', { cache: 'no-cache' });
     const j = await r.json();
     CUR.list = j.places; CUR.byId = new Map(CUR.list.map(p => [p.id, p]));
-    for (const p of CUR.list) if (p.photo) {   // фото из Wikimedia Commons
-      const f = encodeURIComponent(p.photo);
-      p.img = `https://commons.wikimedia.org/wiki/Special:FilePath/${f}?width=640`;
-      p.credit = `https://commons.wikimedia.org/wiki/File:${f}`;
+    for (const p of CUR.list) {
+      p.tags = p.tags ? p.tags.split(' ') : [];
+      if (p.photo) {   // фото из Wikimedia Commons
+        const f = encodeURIComponent(p.photo);
+        p.img = `https://commons.wikimedia.org/wiki/Special:FilePath/${f}?width=640`;
+        p.credit = `https://commons.wikimedia.org/wiki/File:${f}`;
+      }
+      p.score = scorePlace(p);
     }
     CUR.loaded = true;
     for (const id of [...CUR.pick]) if (!id.startsWith('f:') && !CUR.byId.has(id)) CUR.pick.delete(id);
@@ -47,21 +52,39 @@ function curIcon(p) {
     html: `<div class="cpin${picked ? ' picked' : ''}" style="--c:${c.c}"><span>${c.e}</span></div>`,
   });
 }
+// Мест много (500+), поэтому издалека — лёгкие кружки на canvas, вблизи — значки только в видимой части карты
+const FAR_ZOOM = 13;
 function renderCuratedLayer() {
   if (!map) return;
   if (!CUR.layer) {
     CUR.layer = L.layerGroup().addTo(map);
-    const zoomCls = () => map.getContainer().classList.toggle('far', map.getZoom() < 13);
+    CUR.canvas = L.canvas({ padding: 0.3 });
+    const zoomCls = () => map.getContainer().classList.toggle('far', map.getZoom() < FAR_ZOOM);
     map.on('zoomend', zoomCls); zoomCls();
+    let t; map.on('moveend', () => { clearTimeout(t); t = setTimeout(renderCuratedLayer, 60); });
   }
   CUR.layer.clearLayers();
   if (!CUR.on || !CUR.loaded) return;
-  for (const p of CUR.list) {
-    if (!CUR.cats.has(p.cat)) continue;
-    L.marker([p.lat, p.lng], { icon: curIcon(p), title: p.name, zIndexOffset: -200 })
+  const far = map.getZoom() < FAR_ZOOM, bounds = map.getBounds().pad(far ? 0.1 : 0.35);
+  const vis = CUR.list.filter(p => CUR.cats.has(p.cat) && bounds.contains([p.lat, p.lng]));
+  if (far) {
+    for (const p of vis) {
+      const picked = CUR.pick.has(p.id);
+      L.circleMarker([p.lat, p.lng], { renderer: CUR.canvas, radius: picked ? 7 : map.getZoom() < 11 ? 4 : 5.5, color: '#fff', weight: picked ? 2.5 : 1.5,
+        fillColor: CUR_CATS[p.cat].c, fillOpacity: 0.95, bubblingMouseEvents: false })
+        .bindTooltip(p.name, { direction: 'top', offset: [0, -6] })
+        .on('click', () => openCurated(p.id)).addTo(CUR.layer);
+    }
+    return;
+  }
+  // вблизи: значки, но не больше 260 за раз — сначала выбранные и самые популярные
+  vis.sort((a, b) => (CUR.pick.has(b.id) - CUR.pick.has(a.id)) || (b.pop || 0) - (a.pop || 0));
+  for (const p of vis.slice(0, 260)) {
+    L.marker([p.lat, p.lng], { icon: curIcon(p), title: p.name, zIndexOffset: CUR.pick.has(p.id) ? 300 : -200 })
       .on('click', () => openCurated(p.id)).addTo(CUR.layer);
   }
 }
+const curTitle = () => `Москва: ${CUR.list.length || 500} ${plural(CUR.list.length || 500, 'место', 'места', 'мест')}`;
 function renderCuratedControl() {
   let box = $('#curCtl');
   if (!box) {
@@ -70,7 +93,7 @@ function renderCuratedControl() {
   }
   box.innerHTML = `
     <button type="button" class="curtoggle" aria-pressed="${CUR.on}" id="curOn" title="Показать или скрыть подборку на карте">
-      <span class="star">★</span><span>Москва: 100 мест</span><span class="sw2" aria-hidden="true"></span></button>
+      <span class="star">★</span><span>${curTitle()}</span><span class="sw2" aria-hidden="true"></span></button>
     ${CUR.on ? `<div class="curcats">${Object.entries(CUR_CATS).map(([k, c]) => `<button type="button" class="ccat" data-k="${k}" aria-pressed="${CUR.cats.has(k)}" style="--c:${c.c}">${c.e} ${c.n}</button>`).join('')}</div>` : ''}`;
   box.querySelector('#curOn').onclick = () => { CUR.on = !CUR.on; store.set('mv_cur_on', CUR.on ? '1' : '0'); renderCuratedControl(); renderCuratedLayer(); };
   box.querySelectorAll('.ccat').forEach(b => b.onclick = () => {
@@ -107,24 +130,27 @@ function renderPickBar() {
 const yaSearch = p => `https://yandex.ru/maps/?text=${encodeURIComponent(p.name + ', ' + (p.addr || 'Москва'))}&ll=${p.lng},${p.lat}&z=17`;
 function openCurated(id) {
   const p = CUR.byId.get(id); if (!p) return;
-  const c = CUR_CATS[p.cat], on = CUR.pick.has(p.id);
+  const c = CUR_CATS[p.cat], on = CUR.pick.has(p.id), hits = quizHits(p);
   const m = modal(`
     ${p.img ? `<div class="herowrap" id="chero"><img class="hero" src="${esc(p.img)}" alt="${esc(p.name)}"></div>` : `<div class="cbanner" style="--c:${c.c}"><span>${c.e}</span></div>`}
     <div class="mb">
-      <div class="row"><span class="cat" style="background:${c.c}">${c.e} ${c.n}</span><span class="curbadge">★ Подборка «Москва: 100 мест»</span></div>
+      <div class="row"><span class="cat" style="background:${c.c}">${c.e} ${c.n}</span><span class="curbadge">★ ${curTitle()}</span></div>
       <h2>${esc(p.name)}</h2>
       ${p.addr ? `<div class="by">📍 ${esc(p.addr)}</div>` : ''}
+      ${hits.length ? `<div class="forme">🎯 Вам подходит: ${esc(hits.join(', '))}</div>` : ''}
       <p class="note">${esc(p.desc)}</p>
       <div class="facts">
         <span>⏱ ${fmtStay(p.mins)} на месте</span>
         ${p.price ? `<span title="${PRICE_HINT[p.price]}">${PRICE[p.price]} · ${PRICE_HINT[p.price]}</span>` : ''}
+        ${p.cuisine && CUISINES[p.cuisine] ? `<span>${CUISINES[p.cuisine][0]} ${CUISINES[p.cuisine][1]}</span>` : ''}
+        ${(p.tags || []).filter(t => INTERESTS[t]).slice(0, 3).map(t => `<span>${INTERESTS[t][0]} ${INTERESTS[t][1]}</span>`).join('')}
       </div>
       <button type="button" class="cta${on ? ' ghost' : ''}" id="cPick">${on ? '✓ В маршруте — убрать' : '🧭 Добавить в маршрут на день'}</button>
       <div class="links">
         <button type="button" class="lbtn" id="cMap">🗺️ Показать на карте</button>
         <a class="lbtn" href="${esc(yaSearch(p))}" target="_blank" rel="noopener noreferrer">🧭 Как добраться и часы работы</a>
       </div>
-      ${p.img && p.credit ? `<p class="hint">Фото: <a href="${esc(p.credit)}" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a></p>` : ''}
+      ${p.img && p.credit || p.wiki ? `<p class="hint">${p.img && p.credit ? `Фото: <a href="${esc(p.credit)}" target="_blank" rel="noopener noreferrer">Wikimedia Commons</a>` : ''}${p.img && p.credit && p.wiki ? ' · ' : ''}${p.wiki ? `<a href="https://ru.wikipedia.org/wiki/${encodeURIComponent(p.wiki)}" target="_blank" rel="noopener noreferrer">Подробнее в Википедии</a>` : ''}</p>` : ''}
       ${p.cat === 'eat' ? '<p class="hint">Часы работы и цены меняются — перед визитом загляните в карточку на Яндекс Картах.</p>' : ''}
     </div>`);
   m.querySelector('#cPick').onclick = () => {
@@ -141,30 +167,45 @@ function fmtStay(min) { return min >= 60 ? fmtDur(min) : min + ' мин'; }
 function curatedStrip() {
   if (!CUR.loaded || !CUR.list.length) return '';
   const withImg = CUR.list.filter(p => p.img);
-  const day = Math.floor(Date.now() / 86400000);
-  const pickN = 8, start = (day * 7) % Math.max(1, withImg.length);
-  const show = [...withImg.slice(start), ...withImg.slice(0, start)].slice(0, pickN);
+  let show;
+  if (quizOn()) show = withImg.slice().sort((a, b) => b.score - a.score).slice(0, 10);
+  else {
+    const day = Math.floor(Date.now() / 86400000), top = withImg.filter(p => (p.pop || 0) >= 0.35);
+    const start = (day * 7) % Math.max(1, top.length);
+    show = [...top.slice(start), ...top.slice(0, start)].slice(0, 8);
+  }
   return `<section class="curstrip">
-    <div class="cs-head"><div><div class="ptitle">Москва: 100 мест</div><p class="intro">Подборка, где вкусно поесть, что посмотреть и где снять красивые фото.</p></div></div>
+    <div class="cs-head"><div><div class="ptitle">${curTitle()}</div><p class="intro">${quizOn() ? `Подобрано под вас: ${esc(quizSummary())}.` : 'Где вкусно поесть, что посмотреть и где снять красивые фото. Ответьте на 3 вопроса — подберу места под вас.'}</p></div></div>
     <div class="cs-row">${show.map(p => `<button type="button" class="cs-card" data-cur="${p.id}"><img src="${esc(p.img)}" alt="" loading="lazy"><span class="cs-cat" style="background:${CUR_CATS[p.cat].c}">${CUR_CATS[p.cat].e}</span><b>${esc(p.name)}</b></button>`).join('')}</div>
-    <div class="cs-acts"><button type="button" class="sbtn" id="csAll">Все 100 мест</button><button type="button" class="sbtn ghost" id="csDay">🧭 Маршрут на день</button></div>
+    <div class="cs-acts">
+      <button type="button" class="sbtn" id="csQuiz">${quizOn() ? '🎯 Изменить интересы' : '🎯 Подобрать под меня'}</button>
+      <button type="button" class="sbtn ghost" id="csAll">Все ${CUR.list.length} мест</button>
+      <button type="button" class="sbtn ghost" id="csDay">🧭 Маршрут на день</button></div>
   </section>`;
 }
 function bindCuratedStrip(root) {
   root.querySelectorAll('[data-cur]').forEach(b => b.onclick = () => openCurated(b.dataset.cur));
   root.querySelector('#csAll')?.addEventListener('click', () => openCuratedList());
   root.querySelector('#csDay')?.addEventListener('click', () => openDayPlanner());
+  root.querySelector('#csQuiz')?.addEventListener('click', () => openQuiz(() => { closeModal(); if (S.tab === 'tasks') renderPanel(); if (quizOn()) openCuratedList('all', '', 'for'); }));
 }
-function openCuratedList(cat = 'all', query = '') {
-  const items = CUR.list.filter(p => (cat === 'all' || p.cat === cat) &&
-    (!query || (p.name + ' ' + p.desc).toLowerCase().includes(query.toLowerCase())));
+function openCuratedList(cat = 'all', query = '', sort = quizOn() ? 'for' : 'pop', limit = 60) {
+  const ql = query.trim().toLowerCase();
+  let items = CUR.list.filter(p => (cat === 'all' || p.cat === cat) &&
+    (!ql || (p.name + ' ' + p.desc + ' ' + (p.addr || '') + ' ' + (CUISINES[p.cuisine]?.[1] || '') + ' ' + (p.tags || []).map(t => INTERESTS[t]?.[1] || '').join(' ')).toLowerCase().includes(ql)));
+  items = items.slice().sort(sort === 'for' ? (a, b) => b.score - a.score : sort === 'az' ? (a, b) => a.name.localeCompare(b.name, 'ru') : (a, b) => (b.pop || 0) - (a.pop || 0));
+  const total = items.length; items = items.slice(0, limit);
   const m = modal(`
     <div class="mb">
-      <h2>Москва: 100 мест</h2>
+      <h2>${curTitle()}</h2>
       <p class="intro">Отмечайте «+», чтобы собрать маршрут на день. Сайт расставит места в выгодном порядке.</p>
-      <input class="input" id="clQ" type="search" placeholder="Найти: рамен, музей, мост…" value="${esc(query)}" aria-label="Поиск по подборке">
+      <input class="input" id="clQ" type="search" placeholder="Найти: грузинская, музей, мост…" value="${esc(query)}" aria-label="Поиск по подборке">
       <div class="seg">${[['all', 'Все'], ...Object.entries(CUR_CATS).map(([k, c]) => [k, c.e + ' ' + c.n])].map(([k, n]) =>
         `<button type="button" class="chip" data-c="${k}" aria-pressed="${k === cat}">${n} <small>${k === 'all' ? CUR.list.length : CUR.list.filter(p => p.cat === k).length}</small></button>`).join('')}</div>
+      <div class="sortrow"><span>Сначала:</span>
+        ${quizOn() ? `<button type="button" class="linkbtn${sort === 'for' ? ' on' : ''}" data-sort="for">🎯 для вас</button>` : `<button type="button" class="linkbtn" id="clQuiz">🎯 подобрать под меня</button>`}
+        <button type="button" class="linkbtn${sort === 'pop' ? ' on' : ''}" data-sort="pop">★ популярные</button>
+        <button type="button" class="linkbtn${sort === 'az' ? ' on' : ''}" data-sort="az">А–Я</button></div>
       <div class="clist">${items.length ? items.map(p => `
         <div class="citem">
           <button type="button" class="ci-main" data-open="${p.id}">
@@ -173,14 +214,128 @@ function openCuratedList(cat = 'all', query = '') {
           </button>
           <button type="button" class="ci-add" data-add="${p.id}" aria-pressed="${CUR.pick.has(p.id)}" aria-label="В маршрут">${CUR.pick.has(p.id) ? '✓' : '+'}</button>
         </div>`).join('') : '<div class="empty">Ничего не нашлось — попробуйте другое слово.</div>'}</div>
+      ${total > items.length ? `<button type="button" class="cta ghost" id="clMore">Показать ещё · осталось ${total - items.length}</button>` : ''}
       <button type="button" class="cta sticky-cta" id="clGo" ${CUR.pick.size ? '' : 'disabled'}>${CUR.pick.size ? `🧭 Построить маршрут · ${CUR.pick.size} ${plural(CUR.pick.size, 'место', 'места', 'мест')}` : 'Отметьте места «+», чтобы построить маршрут'}</button>
     </div>`);
-  const rerender = () => { const st = $('.modal').scrollTop; openCuratedList(cat, m.querySelector('#clQ').value); $('.modal').scrollTop = st; };
-  m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { cat = b.dataset.c; rerender(); });
-  let t; m.querySelector('#clQ').oninput = e => { clearTimeout(t); t = setTimeout(() => { const v = e.target.value; openCuratedList(cat, v); const q = $('#clQ'); q.focus(); q.setSelectionRange(v.length, v.length); }, 250); };
+  const rerender = (lim = limit) => { const st = $('.modal').scrollTop; openCuratedList(cat, m.querySelector('#clQ').value, sort, lim); $('.modal').scrollTop = st; };
+  m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { cat = b.dataset.c; rerender(60); });
+  m.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { sort = b.dataset.sort; rerender(60); });
+  m.querySelector('#clQuiz')?.addEventListener('click', () => openQuiz(() => openCuratedList(cat, m.querySelector('#clQ')?.value || query, quizOn() ? 'for' : sort)));
+  m.querySelector('#clMore')?.addEventListener('click', () => rerender(limit + 80));
+  let t; m.querySelector('#clQ').oninput = e => { clearTimeout(t); t = setTimeout(() => { const v = e.target.value; openCuratedList(cat, v, sort); const q = $('#clQ'); q.focus(); q.setSelectionRange(v.length, v.length); }, 250); };
   m.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openCurated(b.dataset.open));
-  m.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { togglePick(b.dataset.add); rerender(); });
-  m.querySelector('#clGo').onclick = () => openDayPlanner();
+  const go = m.querySelector('#clGo');
+  m.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {   // без перерисовки списка — быстро даже на телефоне
+    const on = togglePick(b.dataset.add);
+    b.setAttribute('aria-pressed', on); b.textContent = on ? '✓' : '+';
+    const n = CUR.pick.size; go.disabled = !n;
+    go.textContent = n ? `🧭 Построить маршрут · ${n} ${plural(n, 'место', 'места', 'мест')}` : 'Отметьте места «+», чтобы построить маршрут';
+  });
+  go.onclick = () => openDayPlanner();
+}
+
+/* ---------- Опрос: что человеку интересно ---------- */
+const INTERESTS = {
+  history:      ['🏰', 'История и старая Москва'],
+  architecture: ['🏛️', 'Красивые здания'],
+  art:          ['🎨', 'Искусство и галереи'],
+  modern:       ['🏙️', 'Современное: арт, архитектура'],
+  soviet:       ['🏗️', 'СССР и авангард'],
+  science:      ['🚀', 'Наука и техника'],
+  religion:     ['⛪', 'Храмы и монастыри'],
+  nature:       ['🌳', 'Парки и природа'],
+  views:        ['🌆', 'Панорамы и виды'],
+  theatre:      ['🎭', 'Театр и музыка'],
+  literature:   ['📚', 'Литература'],
+  kids:         ['🧸', 'Интересно детям'],
+};
+const CUISINES = {
+  russian:  ['🥟', 'Русская'],
+  georgian: ['🫓', 'Грузинская'],
+  uzbek:    ['🍢', 'Узбекская, восточная'],
+  asian:    ['🍣', 'Азиатская'],
+  european: ['🍝', 'Европейская'],
+  fish:     ['🐟', 'Рыба и морепродукты'],
+  coffee:   ['☕', 'Кофе и десерты'],
+  fast:     ['🍔', 'Быстро и недорого'],
+  market:   ['🧺', 'Рынки и фудкорты'],
+};
+const PACE = { calm: ['🐢', 'Спокойно', 'меньше мест, но без спешки', 1.3, 10], mid: ['🚶', 'В своём темпе', 'сбалансированно', 1, 0], fast: ['⚡', 'Активно', 'увидеть как можно больше', 0.8, 0] };
+const MIX = { inside: ['🖼️', 'Больше музеев'], both: ['⚖️', 'Поровну'], outside: ['🌤️', 'Больше гулять'] };
+function loadQuiz() { try { return JSON.parse(store.get('mv_quiz') || 'null'); } catch { return null; } }
+let QUIZ = null;
+const quizOn = () => !!QUIZ?.done;
+
+// Насколько место подходит человеку: 0 — не подходит совсем (например, не тот бюджет)
+function scorePlace(p) {
+  let s = CAT_SCORE[p.cat] || 1;
+  s *= 0.55 + 0.8 * (p.pop || 0);                       // популярные и известные места — вперёд
+  if (!quizOn()) return s;
+  const Q = QUIZ, tags = p.tags || [];
+  if (p.cat === 'eat') {
+    if (Q.budget?.length && p.price && !Q.budget.includes(p.price)) return 0;
+    if (Q.food?.length) s *= Q.food.includes(p.cuisine) ? 1.7 : 0.45;
+    return s;
+  }
+  const hit = tags.filter(t => Q.ints?.includes(t)).length;
+  if (Q.ints?.length) s *= hit ? 1 + 0.55 * Math.min(hit, 3) : 0.5;
+  if (Q.kids && tags.includes('kids')) s *= 1.4;
+  if (Q.mix === 'inside') s *= p.cat === 'culture' ? 1.35 : 0.8;
+  if (Q.mix === 'outside') s *= p.cat === 'culture' ? 0.7 : 1.3;
+  return s;
+}
+const quizHits = p => quizOn() ? (p.cat === 'eat' ? (QUIZ.food?.includes(p.cuisine) ? [CUISINES[p.cuisine]?.[1]] : []) : (p.tags || []).filter(t => QUIZ.ints?.includes(t)).map(t => INTERESTS[t][1])) : [];
+function quizSummary() {
+  if (!quizOn()) return '';
+  const a = (QUIZ.ints || []).map(k => INTERESTS[k]?.[1]).filter(Boolean);
+  return [a.length ? a.slice(0, 3).join(', ') + (a.length > 3 ? ` и ещё ${a.length - 3}` : '') : 'всё подряд', PACE[QUIZ.pace]?.[1].toLowerCase()].filter(Boolean).join(' · ');
+}
+
+function openQuiz(then, step = 0, draft = null) {
+  const Q = draft || { ...(QUIZ || {}), ints: [...(QUIZ?.ints || [])], food: [...(QUIZ?.food || [])], budget: [...(QUIZ?.budget || [1, 2, 3])], pace: QUIZ?.pace || 'mid', mix: QUIZ?.mix || 'both', kids: !!QUIZ?.kids };
+  const steps = [
+    { t: 'Что вам интересно?', s: 'Выберите всё, что нравится, — подберу места под вас.', body: () => `<div class="qgrid">${Object.entries(INTERESTS).map(([k, [e, n]]) =>
+        `<button type="button" class="qopt" data-int="${k}" aria-pressed="${Q.ints.includes(k)}"><span class="qe">${e}</span>${n}</button>`).join('')}</div>`, ok: () => true },
+    { t: 'Музеи или прогулки?', s: 'Как распределить день между залами и улицей.', body: () => `<div class="qrow">${Object.entries(MIX).map(([k, [e, n]]) =>
+        `<button type="button" class="qopt big" data-mix="${k}" aria-pressed="${Q.mix === k}"><span class="qe">${e}</span>${n}</button>`).join('')}</div>
+        <div class="sec">В каком темпе</div><div class="qrow">${Object.entries(PACE).map(([k, [e, n, d]]) =>
+        `<button type="button" class="qopt big" data-pace="${k}" aria-pressed="${Q.pace === k}"><span class="qe">${e}</span>${n}<small>${d}</small></button>`).join('')}</div>
+        <label class="qcheck"><input type="checkbox" id="qKids" ${Q.kids ? 'checked' : ''}> Иду с детьми</label>`, ok: () => true },
+    { t: 'Что хочется поесть?', s: 'Можно выбрать несколько вариантов или пропустить.', body: () => `<div class="qgrid">${Object.entries(CUISINES).map(([k, [e, n]]) =>
+        `<button type="button" class="qopt" data-food="${k}" aria-pressed="${Q.food.includes(k)}"><span class="qe">${e}</span>${n}</button>`).join('')}</div>
+        <div class="sec">Бюджет на еду</div><div class="qrow">${[1, 2, 3].map(n =>
+        `<button type="button" class="qopt big" data-bud="${n}" aria-pressed="${Q.budget.includes(n)}"><span class="qe">${PRICE[n]}</span>${PRICE_HINT[n]}</button>`).join('')}</div>`, ok: () => Q.budget.length > 0 },
+  ];
+  const S1 = steps[step], last = step === steps.length - 1;
+  const m = modal(`
+    <div class="mb quiz">
+      <div class="qprog">${steps.map((_, i) => `<span class="${i <= step ? 'on' : ''}"></span>`).join('')}<small>${step + 1} из ${steps.length}</small></div>
+      <h2>${S1.t}</h2>
+      <p class="intro">${S1.s}</p>
+      ${S1.body()}
+      <div class="qnav">
+        ${step ? '<button type="button" class="cta ghost" id="qBack">Назад</button>' : '<button type="button" class="linkbtn" id="qSkip">Пропустить</button>'}
+        <button type="button" class="cta" id="qNext" ${S1.ok() ? '' : 'disabled'}>${last ? '✨ Подобрать места' : 'Дальше'}</button>
+      </div>
+    </div>`);
+  const again = () => { const st = $('.modal').scrollTop; openQuiz(then, step, Q); $('.modal').scrollTop = st; };
+  const tog = (arr, v) => { const i = arr.indexOf(v); i < 0 ? arr.push(v) : arr.splice(i, 1); };
+  m.querySelectorAll('[data-int]').forEach(b => b.onclick = () => { tog(Q.ints, b.dataset.int); again(); });
+  m.querySelectorAll('[data-food]').forEach(b => b.onclick = () => { tog(Q.food, b.dataset.food); again(); });
+  m.querySelectorAll('[data-bud]').forEach(b => b.onclick = () => { tog(Q.budget, Number(b.dataset.bud)); again(); });
+  m.querySelectorAll('[data-mix]').forEach(b => b.onclick = () => { Q.mix = b.dataset.mix; again(); });
+  m.querySelectorAll('[data-pace]').forEach(b => b.onclick = () => { Q.pace = b.dataset.pace; again(); });
+  m.querySelector('#qKids')?.addEventListener('change', e => { Q.kids = e.target.checked; });
+  m.querySelector('#qBack')?.addEventListener('click', () => openQuiz(then, step - 1, Q));
+  m.querySelector('#qSkip')?.addEventListener('click', () => { if (!QUIZ) { QUIZ = { skipped: true }; store.set('mv_quiz', JSON.stringify(QUIZ)); } then?.(); });
+  m.querySelector('#qNext').onclick = () => {
+    if (!last) return openQuiz(then, step + 1, Q);
+    QUIZ = { ...Q, done: true, at: Date.now() };
+    store.set('mv_quiz', JSON.stringify(QUIZ));
+    for (const p of CUR.list) p.score = scorePlace(p);
+    toast('Готово! Подобрал места под ваши интересы ✨');
+    then?.();
+  };
 }
 
 /* ---------- Маршрут на день: модель времени ---------- */
@@ -205,9 +360,15 @@ const MEALS = [[12 * 60, 14 * 60 + 30], [18 * 60, 20 * 60 + 30]];
 let PLAN_START = 600;
 function tourCost(start, pts, end, mode) {
   let t = PLAN_START, cur = start, pen = 0;
+  const usedMeal = [false, false];   // каждая еда — в свой приём пищи: обед и ужин, а не два ужина
   for (const p of pts) {
     t += legTime(cur, p, mode).min;
-    if (p.cat === 'eat' || p.eat) pen += Math.min(...MEALS.map(([a, b]) => (t < a ? a - t : t > b ? t - b : 0))) * 0.6;
+    if (p.cat === 'eat' || p.eat) {
+      let d = 240, w = -1;
+      MEALS.forEach(([a, b], i) => { if (usedMeal[i]) return; const x = t < a ? a - t : t > b ? t - b : 0; if (x < d) { d = x; w = i; } });
+      if (w >= 0) usedMeal[w] = true;
+      pen += d * 0.6;
+    }
     t += p.mins; cur = p;
   }
   if (end) t += legTime(cur, end, mode).min;
@@ -265,6 +426,22 @@ function planDay({ start, end, must, pool, minutes, mode, seed, startMin = 600 }
   const eatCap = minutes >= 540 ? 2 : 1;           // обед, а в длинный день — ещё и ужин
   const used = new Set(route.map(p => p.id));
   let left = pool.filter(p => !used.has(p.id));
+  // 2а) если день захватывает обед или ужин — сначала ставим, где поесть (иначе мелкие остановки «вытесняют» еду)
+  const isEat = p => p.cat === 'eat' || p.eat;
+  for (const [a, b] of MEALS) {
+    if (route.filter(isEat).length >= eatCap) break;
+    if (startMin + minutes < a + 45 || startMin > b - 45) continue;
+    const base = tourCost(start, route, end, mode);
+    let best = null;
+    for (const p of left) {
+      if (!isEat(p)) continue;
+      const ins = cheapestInsert(start, route, p, end, mode);
+      if (ins.t > minutes) continue;
+      const sc = (p.score ?? CAT_SCORE.eat) / (Math.max(0, ins.c - base) + 15) * (0.9 + rand() * 0.2);
+      if (!best || sc > best.sc) best = { p, i: ins.i, sc };
+    }
+    if (best) { route.splice(best.i, 0, best.p); left = left.filter(x => x !== best.p); }
+  }
   for (;;) {
     const eatN = route.filter(p => p.cat === 'eat' || p.eat).length;
     const base = tourCost(start, route, end, mode);
@@ -274,12 +451,21 @@ function planDay({ start, end, must, pool, minutes, mode, seed, startMin = 600 }
       const ins = cheapestInsert(start, route, p, end, mode);
       if (ins.t > minutes) continue;
       const add = Math.max(0, ins.c - base);
-      const score = (CAT_SCORE[p.cat] || 1) / (add + 8) * (0.9 + rand() * 0.2);
+      const score = (p.score ?? CAT_SCORE[p.cat] ?? 1) * (p.mins <= 5 ? 0.6 : 1) / (add + 10) * (0.9 + rand() * 0.2);   // «мимоходные» памятники — чуть ниже
       if (!best || score > best.score) best = { p, i: ins.i, score };
     }
     if (!best) break;
     route.splice(best.i, 0, best.p); left = left.filter(x => x.id !== best.p.id);
-    route = twoOpt(start, route, end, mode);
+    if (route.length % 3 === 0) route = twoOpt(start, route, end, mode);   // порядок уточняем раз в несколько шагов — так быстрее
+  }
+  route = twoOpt(start, route, end, mode);
+  // перестановка ради обеда вовремя могла чуть удлинить день — убираем лишнее (обязательные места не трогаем)
+  const mustIds = new Set(must.map(p => p.id));
+  while (tourTime(start, route, end, mode) > minutes) {
+    let worst = -1, val = Infinity;
+    route.forEach((p, i) => { if (mustIds.has(p.id)) return; const v = (p.score ?? 1) / (p.mins + 10); if (v < val) { val = v; worst = i; } });
+    if (worst < 0) break;
+    route.splice(worst, 1);
   }
   return { route, dropped };
 }
@@ -310,6 +496,11 @@ function dayDefaults() {
     fill: true, friends: true, seed: 7, plan: null,
   };
 }
+// Темп из опроса: спокойно — дольше на каждом месте и небольшая пауза
+function paced(p) {
+  const pc = PACE[quizOn() ? QUIZ.pace : 'mid'] || PACE.mid;
+  return pc[3] === 1 && !pc[4] ? p : { ...p, mins: Math.round(p.mins * pc[3] + pc[4]) };
+}
 function pickItems() {
   return [...CUR.pick].map(id => {
     if (id.startsWith('f:')) {
@@ -317,12 +508,15 @@ function pickItems() {
       return p && { id, name: p.title, lat: p.lat, lng: p.lng, cat: 'friend', eat: ['food', 'coffee'].includes(p.category), mins: DWELL[p.category] ?? 30, src: p };
     }
     return CUR.byId.get(id);
-  }).filter(Boolean);
+  }).filter(Boolean).map(paced);
 }
 function poolItems() {
-  const cur = CUR.list.filter(p => D.cats.has(p.cat));
-  const fr = D.friends ? S.places.filter(p => p.author_id !== S.user.id).map(p => ({ id: 'f:' + p.id, name: p.title, lat: p.lat, lng: p.lng, cat: 'friend', eat: ['food', 'coffee'].includes(p.category), mins: DWELL[p.category] ?? 30, src: p })) : [];
-  return [...cur, ...fr];
+  // Мест много — берём лучшие по интересам с поправкой на расстояние от старта, чтобы подбор оставался быстрым
+  const near = p => p.score / (1 + hav(D.start, p) / 4);
+  const ok = CUR.list.filter(p => D.cats.has(p.cat) && p.score > 0).sort((a, b) => near(b) - near(a));
+  const cur = [...ok.filter(p => p.cat !== 'eat').slice(0, 150), ...ok.filter(p => p.cat === 'eat').slice(0, 25)];
+  const fr = D.friends ? S.places.filter(p => p.author_id !== S.user.id).map(p => ({ id: 'f:' + p.id, name: p.title, lat: p.lat, lng: p.lng, cat: 'friend', eat: ['food', 'coffee'].includes(p.category), mins: DWELL[p.category] ?? 30, src: p, score: CAT_SCORE.friend })) : [];
+  return [...cur, ...fr].map(paced);
 }
 function runPlan() {
   const must = pickItems();
@@ -334,6 +528,7 @@ function runPlan() {
 }
 function openDayPlanner(fresh = true) {
   if (!CUR.loaded) return toast('Подборка ещё загружается — попробуйте через секунду');
+  if (!QUIZ) return openQuiz(() => openDayPlanner(true));    // первый раз — короткий опрос об интересах
   if (!D || fresh) { const keep = D; D = dayDefaults(); if (keep) Object.assign(D, { start: keep.start, end: keep.end, endKind: keep.endKind, hours: keep.hours, mode: keep.mode, cats: keep.cats, fill: keep.fill, friends: keep.friends, startMin: keep.startMin }); runPlan(); }
   const P = D.plan, sc = P.sched, picked = pickItems();
   const legHtml = (l, i) => `
@@ -343,7 +538,7 @@ function openDayPlanner(fresh = true) {
       <span class="tl-dot" style="--c:${l.to.cat === 'friend' ? 'var(--route)' : CUR_CATS[l.to.cat].c}">${i + 1}</span>
       <button type="button" class="tl-body" data-stop="${esc(l.to.id)}">
         <b>${esc(l.to.name)}</b>
-        <small>${l.to.cat === 'friend' ? `место друга · ${esc(nameOf(l.to.src.author_id))}` : CUR_CATS[l.to.cat].n}${l.to.price ? ' · ' + PRICE[l.to.price] : ''} · ${fmtStay(l.to.mins)}${CUR.pick.has(l.to.id) ? ' · <span class="mine-pick">вы выбрали</span>' : ''}</small>
+        <small>${l.to.cat === 'friend' ? `место друга · ${esc(nameOf(l.to.src.author_id))}` : CUR_CATS[l.to.cat].n}${l.to.price ? ' · ' + PRICE[l.to.price] : ''} · ${fmtStay(l.to.mins)}${CUR.pick.has(l.to.id) ? ' · <span class="mine-pick">вы выбрали</span>' : quizHits(l.to).length ? ` · <span class="mine-pick" title="${esc(quizHits(l.to).join(', '))}">🎯 для вас</span>` : ''}</small>
       </button>
     </div>`;
   const m = modal(`
@@ -351,8 +546,11 @@ function openDayPlanner(fresh = true) {
       <h2>Маршрут на день</h2>
       <p class="intro">${picked.length ? `Вы выбрали ${picked.length} ${plural(picked.length, 'место', 'места', 'мест')}. Расставлю их в самом выгодном порядке${D.fill ? ' и добавлю ещё, если останется время' : ''}.` : 'Выберите старт и сколько у вас времени — подберу маршрут, чтобы успеть как можно больше.'}</p>
       <details class="dp-set" ${D.setOpen ?? !isMobile() ? 'open' : ''}>
-      <summary><b>Настройки</b><span>${esc(D.start.label)} · ${hm(D.startMin)} · ${D.hours} ч · ${D.mode === 'walk' ? 'пешком' : 'пешком и на метро'}</span></summary>
+      <summary><b>Настройки</b><span>${esc(D.start.label)} · ${hm(D.startMin)} · ${D.hours} ч · ${D.mode === 'walk' ? 'пешком' : 'пешком и на метро'}${quizOn() ? ' · 🎯 по вашим интересам' : ''}</span></summary>
       <div class="dp-grid">
+        <div class="field"><span>Ваши интересы</span><div class="dp-int">
+          <span>${quizOn() ? '🎯 ' + esc(quizSummary()) : 'Не выбраны — подбираю самое популярное'}</span>
+          <button type="button" class="linkbtn" id="dpQuiz">${quizOn() ? 'Изменить' : 'Пройти опрос'}</button></div></div>
         <div class="field"><span>Откуда</span><div class="seg">
           <button type="button" class="chip" data-st="geo">📍 Где я</button>
           <button type="button" class="chip" data-st="center">🗺️ Центр карты</button>
@@ -401,6 +599,7 @@ function openDayPlanner(fresh = true) {
     </div>`);
 
   m.querySelector('.dp-set').addEventListener('toggle', e => { D.setOpen = e.target.open; });
+  m.querySelector('#dpQuiz').onclick = () => openQuiz(() => { runPlan(); openDayPlanner(false); });
   const again = () => { runPlan(); const st = $('.modal').scrollTop; openDayPlanner(false); $('.modal').scrollTop = st; };
   m.querySelectorAll('[data-st]').forEach(b => b.onclick = () => {
     const k = b.dataset.st;
@@ -428,7 +627,7 @@ function openDayPlanner(fresh = true) {
   if (!P.route.length) return;
   m.querySelector('#dpShow').onclick = () => { closeModal(); showDayRoute(); };
   m.querySelector('#dpAlt').onclick = () => { D.seed = (D.seed * 31 + 7) % 10007; again(); };
-  m.querySelector('#dpSave').onclick = saveDayAsWalk;
+  m.querySelector('#dpSave').onclick = () => openInviteStep();
 }
 function yaRoute() {
   const pts = [D.start, ...D.plan.route, ...(D.plan.end ? [D.plan.end] : [])].map(p => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`);
@@ -491,23 +690,63 @@ async function showDayRoute() {
   }
 }
 
-/* ---------- Сохранить как прогулку ---------- */
-async function saveDayAsWalk() {
+/* ---------- Сохранить как прогулку и позвать друзей ---------- */
+function openInviteStep(sel = null, dayOff = null, title = null) {
   const P = D.plan, sc = P.sched;
-  const now = new Date(), day = new Date(); day.setHours(0, 0, 0, 0);
-  let starts = new Date(day.getTime() + D.startMin * 60000);
-  if (starts < now) starts = new Date(starts.getTime() + 86400000);   // время уже прошло — на завтра
-  const title = ('Маршрут на день: ' + P.route.slice(0, 3).map(p => p.name).join(' → ') + (P.route.length > 3 ? '…' : '')).slice(0, 80);
-  const route = P.route.map(p => ({ id: p.id.startsWith('f:') ? Number(p.id.slice(2)) : p.id, title: p.name, lat: p.lat, lng: p.lng,
-    category: p.cat === 'friend' ? p.src.category : ({ eat: 'food', culture: 'culture', photo: 'photo', walk: 'walk' }[p.cat]), photo_url: p.img || p.src?.photo_url || null }));
-  const btn = $('#dpSave'); if (btn) { btn.disabled = true; btn.textContent = 'Сохраняю…'; }
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  if (dayOff === null) dayOff = D.startMin <= nowMin ? 1 : 0;      // время уже прошло — предлагаем завтра
+  sel = sel || new Set();
+  if (title == null) {   // «Маршрут: А → Б и ещё 8» — коротко, без обрезанных слов
+    let t = 'Маршрут: ' + P.route[0].name, k = 1;
+    while (k < P.route.length && (t + ' → ' + P.route[k].name).length <= 60) t += ' → ' + P.route[k++].name;
+    title = (k < P.route.length ? `${t} и ещё ${P.route.length - k}` : t).slice(0, 80);
+  }
+  const fr = S.friends || [];
+  const m = modal(`
+    <div class="mb">
+      <h2>Позвать друзей</h2>
+      <p class="intro">Друзья увидят маршрут во вкладке «Прогулки», ответят «иду» или «не смогу» и смогут добавить свои места — маршрут пересчитается.</p>
+      <label class="field"><span>Название</span><input class="input" id="ivT" maxlength="80" value="${esc(title)}"></label>
+      <div class="field"><span>Когда</span><div class="seg">
+        ${['Сегодня', 'Завтра', 'Послезавтра'].map((n, i) => `<button type="button" class="chip" data-day="${i}" aria-pressed="${dayOff === i}">${n}</button>`).join('')}
+        <span class="dp-now">в ${hm(D.startMin)} · ${fmtDur(sc.endMin - D.startMin)}</span></div></div>
+      <div class="field"><span>Кого позвать ${sel.size ? `<b class="n">${sel.size}</b>` : ''}</span>
+        ${fr.length ? `<div class="seg">${fr.map(f => `<button type="button" class="chip" data-fr="${f.id}" aria-pressed="${sel.has(f.id)}">${avatar(f, 'sm')} ${esc(f.name)}</button>`).join('')}</div>`
+          : '<div class="state info">Пока нет друзей на сайте. Сохраните маршрут — позвать можно будет позже, когда добавите друзей во вкладке «Друзья».</div>'}
+      </div>
+      <button type="button" class="cta" id="ivGo">${sel.size ? `📨 Сохранить и позвать (${sel.size})` : '💾 Сохранить маршрут'}</button>
+      <button type="button" class="linkbtn" id="ivBack">← Назад к маршруту</button>
+    </div>`);
+  const cur = () => m.querySelector('#ivT').value;
+  m.querySelectorAll('[data-day]').forEach(b => b.onclick = () => openInviteStep(sel, Number(b.dataset.day), cur()));
+  m.querySelectorAll('[data-fr]').forEach(b => b.onclick = () => { const id = b.dataset.fr; sel.has(id) ? sel.delete(id) : sel.add(id); openInviteStep(sel, dayOff, cur()); });
+  m.querySelector('#ivBack').onclick = () => openDayPlanner(false);
+  m.querySelector('#ivGo').onclick = () => saveDayAsWalk({ title: cur().trim() || title, dayOff, invite: [...sel] });
+}
+// Точка маршрута для сохранения в прогулку (с временем на месте — чтобы друзья могли пересчитать маршрут)
+function walkPoint(p) {
+  return { id: p.id.startsWith('f:') ? Number(p.id.slice(2)) : p.id, title: p.name, lat: p.lat, lng: p.lng, mins: p.mins,
+    category: p.cat === 'friend' ? p.src.category : ({ eat: 'food', culture: 'culture', photo: 'photo', walk: 'walk' }[p.cat]), photo_url: p.img || p.src?.photo_url || null };
+}
+async function saveDayAsWalk({ title, dayOff = 0, invite = [] } = {}) {
+  const P = D.plan, sc = P.sched;
+  const day = new Date(); day.setHours(0, 0, 0, 0);
+  const starts = new Date(day.getTime() + dayOff * 86400000 + D.startMin * 60000);
+  const route = P.route.map(walkPoint);
+  const btn = $('#ivGo'); if (btn) { btn.disabled = true; btn.textContent = 'Сохраняю…'; }
   const ins = await sb.from('plans').insert({
-    title, starts_at: starts.toISOString(), note: `Маршрут на ${fmtDur(sc.endMin - D.startMin)}, ${P.route.length} ${plural(P.route.length, 'место', 'места', 'мест')}.`, route,
+    title: (title || 'Маршрут на день').slice(0, 80), starts_at: starts.toISOString(),
+    note: `Маршрут на ${fmtDur(sc.endMin - D.startMin)}, ${P.route.length} ${plural(P.route.length, 'место', 'места', 'мест')}.`, route,
     km: Math.round(sc.km * 100) / 100, minutes: Math.round(sc.endMin - D.startMin), path: null,
   }).select('id').single();
-  if (ins.error) { toast(errText(ins.error)); if (btn) { btn.disabled = false; btn.textContent = '👥 Сохранить и позвать друзей'; } return; }
+  if (ins.error) { toast(errText(ins.error)); if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; } return; }
+  let sent = 0;
+  if (invite.length) {
+    const r2 = await sb.from('plan_members').insert(invite.map(u => ({ plan_id: ins.data.id, user_id: u })));
+    if (r2.error) toast('Маршрут сохранён, но приглашения не ушли: ' + errText(r2.error), 4500); else sent = invite.length;
+  }
   closeModal();
-  toast('Маршрут сохранён в «Прогулки» — позовите друзей', 3500);
+  toast(sent ? `Готово! Позвали ${sent} ${plural(sent, 'друга', 'друзей', 'друзей')} — ждём ответов 🙌` : 'Маршрут сохранён в «Прогулки»', 3500);
   await refresh(false);
   openWalk(ins.data.id);
 }
