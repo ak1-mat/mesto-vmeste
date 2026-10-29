@@ -5,35 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Место вместе</title>
 <meta name="description" content="Общая карта мест, которые советуют друзья: задания, прогулки и рейтинг.">
-<meta name="theme-color" content="#F3F4EF" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#121416" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F2F1F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F0E15" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Место вместе">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Unbounded:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="style.css?v=20261029c">
+<link rel="stylesheet" href="style.css?v=20261029d">
 </head>
 <body data-view="tasks">
 
 <!-- Заставка, пока проверяем вход -->
 <div class="boot" id="boot" aria-label="Загрузка"><span class="logo lg"></span></div>
 
-<!-- Экран входа -->
+<!-- Экран входа = главная страница (дизайн «Апогей», 29.10.2026) -->
 <section id="auth" class="auth" hidden>
-  <div class="ahero">
-    <div class="abrand"><span class="logo"></span>Место вместе</div>
-    <h1>Карта мест, которые советуют друзья</h1>
-  </div>
-  <ul class="aperks">
-      <li><span class="sticker s1">🍜</span><div><b>Отмечайте любимые места</b>Кофейни, парки, точки для фото — с заметкой, что там крутого.</div></li>
-      <li><span class="sticker s2">📸</span><div><b>Выполняйте задания</b>Придите в место друга, сфотографируйте его и получите баллы.</div></li>
-      <li><span class="sticker s3">🚶</span><div><b>Гуляйте вместе</b>Сайт соберёт маршрут, подскажет, кого позвать и во сколько.</div></li>
-  </ul>
-  <div class="acard">
+  <header class="lhead">
+    <a class="lbrand" href="#auth"><span class="logo"></span><span class="wm">место <span>вместе</span></span></a>
+    <nav class="lnav" aria-label="Основное меню">
+      <a href="#how">Как это работает</a>
+      <a href="#ltasks">Задания</a>
+    </nav>
+    <a class="lcta dark sm" href="#acard" data-go-login>Войти</a>
+  </header>
+
+  <div class="lwrap lhero">
+    <div class="lhero-t">
+      <span class="lbadge">Карта рекомендаций твоих друзей</span>
+      <h1>Все крутые места друзей — <span>на одной карте</span></h1>
+      <p>Больше никаких скриншотов и потерянных ссылок в чатах. Сохраняйте места, ставьте реакции на метки друзей и решайте вместе, куда пойти сегодня.</p>
+      <div class="lbtns">
+        <a class="lcta" href="#acard" data-go-login>Начать бесплатно</a>
+        <a class="lcta line" href="#how">Как это работает</a>
+      </div>
+    </div>
+    <div class="lhero-c">
+      <div class="lmap" aria-hidden="true">
+        <svg class="lroads" viewBox="0 0 560 520" preserveAspectRatio="xMidYMid slice"><path d="M-20 150 C 120 120, 260 210, 580 160" stroke="#fff" stroke-width="22" fill="none"/><path d="M-20 360 C 140 330, 300 420, 580 370" stroke="#fff" stroke-width="16" fill="none"/><path d="M150 -20 C 170 160, 110 340, 190 560" stroke="#fff" stroke-width="18" fill="none"/><path d="M400 -20 C 380 160, 440 330, 380 560" stroke="#fff" stroke-width="12" fill="none"/><path d="M-20 470 C 120 430, 220 510, 320 470 S 470 430, 580 470" stroke="#D9D5F5" stroke-width="38" fill="none"/><ellipse cx="300" cy="260" rx="72" ry="44" fill="#DDF0C2"/></svg>
+        <div class="lpin pin task" style="left:12%;top:52px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">А</span></div><div class="lpin pin task" style="left:58%;top:14px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">Д</span></div><div class="lpin pin done" style="left:80%;top:40px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e"><svg class="pk" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg></span></div><div class="lpin pin task" style="left:36%;top:70px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">М</span></div>
+      </div>
+  <div class="acard" id="acard">
     <h2 id="authTitle">Вход</h2>
     <p class="invite" id="serverHint"></p>
     <div id="otpBox" class="abox">
@@ -80,12 +95,64 @@
       <button type="button" class="linkbtn alt" id="toOtp">Войти по коду из почты</button>
     </div>
   </div>
+    </div>
+  </div>
+
+  <section class="lband">
+    <div class="lwrap">
+      <h2>Советы друзей теряются в скриншотах и чатах</h2>
+      <div class="lstats">
+        <div><b>86%</b><span>хоть раз теряли место, которое советовал друг</span></div>
+        <div><b>74%</b><span>хранят места минимум в двух разных приложениях</span></div>
+        <div><b>73%</b><span>признаются, что с друзьями сложно договориться, куда пойти</span></div>
+      </div>
+      <p class="lsrc">Опрос команды «Апогей», октябрь 2026, 37 участников.</p>
+    </div>
+  </section>
+
+  <section class="lwrap lhow" id="how">
+    <h2>Как это работает</h2>
+    <div class="lsteps">
+      <div><span class="ln">1</span><h3>Сохрани место</h3><p>Отметь место на карте, добавь фото и пару слов — метка сразу появится у друзей.</p></div>
+      <div><span class="ln">2</span><h3>Добавь друзей</h3><p>Поделись кодом — и вы видите метки друг друга, отзывы и реакции. Без рекламы и случайных оценок.</p></div>
+      <div class="lime"><span class="ln">3</span><h3>Выберите вместе</h3><p>Фильтруй по настроению — поесть, погулять, для фото — собери маршрут и позови компанию.</p></div>
+    </div>
+  </section>
+
+  <section class="lwrap" id="ltasks">
+    <div class="ltasks">
+      <div class="ltasks-t">
+        <h2>Не просто сохраняй — <span>иди и проверяй</span></h2>
+        <p>Метка друга становится заданием. Приходишь на место, снимаешь фото прямо в сервисе — получаешь баллы и поднимаешься в рейтинге компании.</p>
+        <a class="lcta limeb" href="#acard" data-go-login>Попробовать задания</a>
+      </div>
+      <div class="lrank" aria-label="Пример рейтинга компании">
+        <p>Рейтинг компании</p>
+        <div class="on"><b>1</b><span class="lav">Д</span><span class="lnm">Даша</span><b>1 240</b></div>
+        <div><b>2</b><span class="lav n">Т</span><span class="lnm">Ты</span><b>980</b></div>
+        <div><b>3</b><span class="lav l">А</span><span class="lnm">Аня</span><b>760</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lend">
+    <div class="lwrap">
+      <h2>Собери свою первую карту <span>вместе</span></h2>
+      <a class="lcta" href="#acard" data-go-login>Войти по почте</a>
+      <p>Бесплатно. Работает в браузере, установка не нужна.</p>
+    </div>
+  </section>
+
+  <footer class="lwrap lfoot">
+    <span class="wm">место <span>вместе</span></span>
+    <span>Сделано командой «Апогей», 2026</span>
+  </footer>
 </section>
 
 <!-- Приложение -->
 <div class="app" id="app" hidden>
   <header class="top">
-    <div class="brand"><span class="logo"></span><b>Место вместе</b></div>
+    <div class="brand"><span class="logo"></span><b class="wm">место <span>вместе</span></b></div>
     <button class="score" id="scoreBtn" type="button" title="Мой профиль">
       <span class="pts-sticker"><span class="n" id="mePts">0</span> <span class="r">баллов</span></span>
       <span class="av" id="meAv"></span>
@@ -143,10 +210,10 @@
   // Запасной адрес, если jsdelivr недоступен
   if (!window.supabase) document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
 </script>
-<script src="config.js?v=20261029c"></script>
-<script src="ymap.js?v=20261029c"></script>
-<script src="app.js?v=20261029c"></script>
-<script src="walks.js?v=20261029c"></script>
-<script src="curated.js?v=20261029c"></script>
+<script src="config.js?v=20261029d"></script>
+<script src="ymap.js?v=20261029d"></script>
+<script src="app.js?v=20261029d"></script>
+<script src="walks.js?v=20261029d"></script>
+<script src="curated.js?v=20261029d"></script>
 </body>
 </html>

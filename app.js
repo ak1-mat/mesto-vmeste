@@ -16,7 +16,7 @@ const CATS = {
 };
 const EMOJIS = ['❤️', '🔥', '😍', '👍', '🤤'];
 const AVATARS = ['🦊', '🐼', '🐸', '🐙', '🦄', '🐯', '🐨', '🐧', '🦉', '🐳', '🌻', '🍕', '⚡', '🎧', '🛹', '🚀'];
-const COLORS = ['#3346F0', '#E2553B', '#18915A', '#9B3FD1', '#E2A21B', '#169C86', '#D9367A', '#2B7BD6'];
+const COLORS = ['#5B3DF5', '#15131F', '#E2553B', '#18915A', '#8B74FF', '#169C86', '#D9367A', '#2B7BD6'];
 const PTS = { place: 5, visit: 20, visited: 5 };
 
 if (!window.supabase || !window.L) {
@@ -126,6 +126,18 @@ function showAuth() {
     $('#serverHint').textContent = 'Вас пригласил друг. Войдите по почте — и вы сразу станете друзьями.';
   }
 }
+// Ссылки главной страницы: плавно листаем внутри экрана входа, адрес не меняем (в нём бывают данные входа из письма)
+$('#auth').addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]'); if (!a) return;
+  e.preventDefault();
+  const t = a.getAttribute('href') === '#auth' ? $('#auth') : $(a.getAttribute('href'));
+  if (a.hasAttribute('data-go-login')) {
+    $('#acard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const inp = !$('#otpBox').hidden ? (!$('#otpEmailForm').hidden ? $('#otpEmail') : $('#otpCode')) : $('#authForm [name=email]');
+    setTimeout(() => inp?.focus({ preventScroll: true }), 350);
+  } else if (t === $('#auth')) $('#auth').scrollTo({ top: 0, behavior: 'smooth' });
+  else t?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 $('#toPass').onclick = () => { setAuthBox('pass'); const e = $('#otpEmail').value.trim(); if (e) $('#authForm [name=email]').value = e; };
 $('#toOtp').onclick = () => { setAuthBox('otp'); const e = $('#authForm [name=email]').value.trim(); if (e) $('#otpEmail').value = e; };
 
@@ -289,21 +301,27 @@ function fitOnce() {
     navigator.geolocation?.getCurrentPosition(p => map.setView([p.coords.latitude, p.coords.longitude], 13), () => {}, { timeout: 5000 });
   }
 }
+// Метки в стиле айдентики: капля 48×64. Место друга — фиолетовая с его буквой (это и есть задание, +20),
+// уже выполнено — «ночь» с лаймовой галочкой, своё — белая с эмодзи категории.
+const PIN_D = 'M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z';
+const PIN_OK = '<svg class="pk" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
+function pinHtml(cls, inner, flag = '') {
+  return `<div class="pin ${cls}"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="${PIN_D}"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">${inner}</span>${flag}</div>`;
+}
 function pinIcon(p) {
   const c = CATS[p.category] || CATS.other;
   const mine = p.author_id === S.user.id;
   const done = !mine && visitOf(p.id, S.user.id);
-  const cls = mine ? 'mine' : done ? 'done' : 'task';
-  const flag = mine ? '' : done ? '<span class="flag">✓</span>' : `<span class="flag">+${PTS.visit}</span>`;
-  return L.divIcon({
-    className: '', iconSize: [40, 48], iconAnchor: [20, 47],
-    html: `<div class="pin ${cls}"><span class="b" style="background:${c.c}"></span><span class="e">${c.e}</span>${flag}</div>`,
-  });
+  const who = esc(((prof(p.author_id)?.name || '?').trim()[0] || '?').toUpperCase());
+  const html = mine ? pinHtml('mine', c.e)
+    : done ? pinHtml('done', PIN_OK)
+    : pinHtml('task', who, `<span class="flag">+${PTS.visit}</span>`);
+  return L.divIcon({ className: '', iconSize: [40, 53], iconAnchor: [20, 52], html });
 }
 function renderMap() {
   layer.clearLayers();
   for (const p of filteredPlaces()) {
-    L.marker([p.lat, p.lng], { icon: pinIcon(p), title: p.title })
+    L.marker([p.lat, p.lng], { icon: pinIcon(p), title: p.title, zIndexOffset: 800 })
       .on('click', () => openPlace(p.id)).addTo(layer);
   }
 }
@@ -346,7 +364,7 @@ function geoDraw(p) {
   $('#locBtn')?.classList.remove('busy');
   const r = Math.min(Math.max(acc, 5), 3000);
   if (!GEO.dot) {
-    GEO.ring = L.circle(ll, { radius: r, color: '#3346F0', weight: 1, opacity: 0.35, fillColor: '#3346F0', fillOpacity: 0.1, interactive: false }).addTo(map);
+    GEO.ring = L.circle(ll, { radius: r, color: '#5B3DF5', weight: 1, opacity: 0.35, fillColor: '#5B3DF5', fillOpacity: 0.1, interactive: false }).addTo(map);
     GEO.dot = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: '<div class="medot"></div>' }), interactive: false, zIndexOffset: 1000, title: '' }).addTo(map);
   } else { GEO.dot.setLatLng(ll); GEO.ring.setLatLng(ll); GEO.ring.setRadius(r); }
   if (GEO.follow) {
@@ -398,7 +416,7 @@ $('#addHere').onclick = () => {
 
 function openAddForm(latlng) {
   if (newMarker) newMarker.remove();
-  newMarker = L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [40, 48], iconAnchor: [20, 47], html: '<div class="pin newpin"><span class="b"></span><span class="e">✨</span></div>' }) }).addTo(map);
+  newMarker = L.marker(latlng, { icon: L.divIcon({ className: '', iconSize: [40, 53], iconAnchor: [20, 52], html: pinHtml('newpin', '+') }) }).addTo(map);
   map.panTo(latlng);
   let cat = 'food', file = null;
   const m = modal(`

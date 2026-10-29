@@ -1,36 +1,39 @@
-/* «Место вместе» — оформление.
-   Идея: спокойная городская карта + яркие «стикеры» баллов (жёлтый маркер). */
+/* «Место вместе» — оформление по айдентике команды «Апогей» (29.10.2026).
+   Фиалка — главное действие, лайм — баллы и задания, ночь — текст и тёмные плашки, туман — подложки.
+   Заголовки — Unbounded, текст — Manrope. Кнопки и фильтры — «таблетки». */
 :root{
-  --paper:#F3F4EF;        /* фон приложения */
+  --paper:#F2F1F7;        /* туман: фон приложения */
   --surface:#FFFFFF;      /* карточки, окна */
-  --sunk:#ECEEE7;         /* поля ввода, вторичные кнопки */
-  --ink:#17191F;          /* основной текст */
-  --muted:#5E636C;        /* подписи */
-  --line:#DADDD4;         /* рамки */
-  --route:#2F4BFF;        /* главный акцент: кнопки, маршрут */
+  --sunk:#F2F1F7;         /* поля ввода, вторичные кнопки */
+  --ink:#15131F;          /* ночь: основной текст */
+  --muted:#5E5B6E;        /* графит: подписи */
+  --line:#E3E1EC;         /* рамки */
+  --route:#5B3DF5;        /* фиалка: главный акцент, маршрут */
   --route-ink:#FFFFFF;
-  --route-soft:#E6EAFF;
-  --mark:#FFD84D;         /* стикеры баллов */
-  --mark-ink:#17191F;
+  --route-soft:#ECE8FF;
+  --mark:#C8F542;         /* лайм: баллы, задания */
+  --mark-ink:#15131F;
   --good:#12855A; --good-soft:#DCF2E6;
   --warn:#C93A27; --warn-soft:#FCE6E1;
-  --scrim:rgba(18,20,26,.48);
-  --sh-1:0 1px 2px rgba(23,25,31,.06),0 2px 8px rgba(23,25,31,.06);
-  --sh-2:0 12px 32px rgba(23,25,31,.16),0 2px 6px rgba(23,25,31,.08);
-  --r-s:10px; --r-m:14px; --r-l:20px; --r-xl:26px;
-  --f-display:'Unbounded','Golos Text',system-ui,sans-serif;
-  --f-body:'Golos Text',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --scrim:rgba(21,19,31,.5);
+  --sh-1:0 1px 2px rgba(21,19,31,.05),0 6px 18px rgba(21,19,31,.07);
+  --sh-2:0 12px 32px rgba(21,19,31,.14),0 2px 6px rgba(21,19,31,.06);
+  --r-s:12px; --r-m:16px; --r-l:22px; --r-xl:28px;
+  --f-display:'Unbounded','Manrope',system-ui,sans-serif;
+  --f-body:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
   --nav:0px;
+  --logo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 68'%3E%3CclipPath id='a'%3E%3Cpath transform='translate(-24 0)' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3C/clipPath%3E%3Cpath transform='translate(4 2)' fill='%235B3DF5' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Cpath transform='translate(28 2)' fill='%23C8F542' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Cpath transform='translate(28 2)' fill='%2315131F' clip-path='url(%23a)' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3C/svg%3E");
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --paper:#121416; --surface:#1B1E22; --sunk:#24282D; --ink:#ECEDE8; --muted:#A1A6AE; --line:#30353B;
-    --route:#7D8CFF; --route-ink:#0F1115; --route-soft:#252B4D;
-    --mark:#FFD84D; --mark-ink:#17191F;
+    --paper:#0F0E15; --surface:#1A1824; --sunk:#24212F; --ink:#F2F1F7; --muted:#ABA8BA; --line:#2F2C3B;
+    --route:#8B74FF; --route-ink:#15131F; --route-soft:#2A2350;
+    --mark:#C8F542; --mark-ink:#15131F;
     --good:#4CC98C; --good-soft:#15322A; --warn:#FF7A66; --warn-soft:#3B1E1A;
     --scrim:rgba(0,0,0,.62);
     --sh-1:0 1px 2px rgba(0,0,0,.3); --sh-2:0 14px 36px rgba(0,0,0,.5);
+    --logo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 68'%3E%3CclipPath id='a'%3E%3Cpath transform='translate(-24 0)' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3C/clipPath%3E%3Cpath transform='translate(4 2)' fill='%238B74FF' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Cpath transform='translate(28 2)' fill='%23C8F542' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Cpath transform='translate(28 2)' fill='%23FFFFFF' clip-path='url(%23a)' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3C/svg%3E");
     color-scheme:dark;
   }
   .leaflet-tile-pane{filter:brightness(.72) contrast(1.1) saturate(.75)}
@@ -46,8 +49,8 @@ h1,h2,h3{margin:0;text-wrap:balance}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
-.logo{width:28px;height:28px;flex:none;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%232F4BFF' d='M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7z'/%3E%3Ccircle cx='12' cy='9' r='2.8' fill='%23FFD84D'/%3E%3C/svg%3E")}
-.logo.lg{width:56px;height:56px}
+.logo{width:36px;height:31px;flex:none;background:no-repeat center/contain var(--logo)}
+.logo.lg{width:72px;height:61px}
 
 /* Заставка */
 .boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--paper);z-index:5000}
@@ -57,35 +60,86 @@ h1,h2,h3{margin:0;text-wrap:balance}
 /* Стикер баллов — фирменный элемент */
 .pts-sticker,.rew,.plusb,.flag-pts{background:var(--mark);color:var(--mark-ink);font-family:var(--f-display);font-weight:700;border-radius:8px;white-space:nowrap;font-variant-numeric:tabular-nums}
 
-/* ---------- Вход ---------- */
-.auth{position:fixed;inset:0;overflow:auto;display:grid;grid-template-columns:minmax(0,560px) minmax(0,440px);grid-template-areas:"hero card" "perks card";
-  column-gap:56px;row-gap:28px;align-content:center;justify-content:center;padding:48px max(32px,5vw);background:var(--paper)}
-.ahero{grid-area:hero;align-self:end;display:flex;flex-direction:column;gap:28px}
-.aperks{grid-area:perks;align-self:start}
-.acard{grid-area:card;align-self:center}
+/* ---------- Вход = главная страница ---------- */
+.auth{position:fixed;inset:0;overflow:auto;background:var(--surface);scroll-behavior:smooth;overscroll-behavior:contain}
+.lwrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px}
+.wm{font-family:var(--f-display);font-weight:600;letter-spacing:-.03em;white-space:nowrap}
+.wm span{color:var(--route)}
+.lhead{max-width:1200px;margin:0 auto;padding:20px 24px;display:flex;align-items:center;gap:16px 28px;flex-wrap:wrap}
+.lbrand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-size:19px;margin-right:auto}
+.lnav{display:flex;gap:28px;font-weight:600;font-size:16px}
+.lnav a{color:var(--ink);text-decoration:none}
+.lnav a:hover{color:var(--route)}
+.lcta{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-size:17px;color:#fff;background:#5B3DF5;text-decoration:none;padding:17px 28px;border-radius:999px;border:0;cursor:pointer;white-space:nowrap;transition:transform .1s,filter .15s}
+.lcta:hover{filter:brightness(1.08)}.lcta:active{transform:translateY(1px)}
+.lcta.line{background:none;color:var(--ink);border:1.5px solid var(--ink);padding:15.5px 26px}
+.lcta.dark{background:var(--ink);color:var(--surface)}
+.lcta.sm{font-size:15px;padding:12px 20px}
+.lcta.limeb{background:#C8F542;color:#15131F;align-self:flex-start}
+.lhero{display:flex;flex-wrap:wrap;gap:48px 56px;align-items:center;padding-top:24px;padding-bottom:88px}
+.lhero-t{flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:26px}
+.lbadge{align-self:flex-start;font-size:14px;font-weight:700;background:#C8F542;color:#15131F;padding:8px 14px;border-radius:999px}
+.lhero h1{font-family:var(--f-display);font-weight:600;font-size:clamp(36px,5vw,64px);line-height:1.04;letter-spacing:-.035em}
+.lhero h1 span,.lhow h2 span,.lend h2 span{color:var(--route)}
+.lhero-t p{margin:0;font-size:19px;line-height:1.55;color:var(--muted);max-width:520px}
+.lctas{display:flex;flex-wrap:wrap;gap:12px}
+.lhero-c{flex:1 1 440px;min-width:0;position:relative;border-radius:36px;background:#F2F1F7;padding:168px 24px 24px;overflow:hidden}
+.lmap{position:absolute;inset:0}
+.lroads{position:absolute;inset:0;width:100%;height:100%}
+.lpin{position:absolute}
+.acard{position:relative;background:var(--surface);border-radius:26px;width:100%;box-shadow:0 12px 32px rgba(21,19,31,.12);padding:26px 24px 22px;display:flex;flex-direction:column;gap:16px;scroll-margin:24px}
+.acard h2{font-family:var(--f-display);font-weight:600;font-size:22px;letter-spacing:-.02em}
 .invite{margin:-6px 0 0;background:var(--mark);color:var(--mark-ink);border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:600}
 .invite:empty{display:none}
-.abrand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:16px}
-.ahero h1{font-family:var(--f-display);font-weight:800;font-size:clamp(30px,4.2vw,52px);line-height:1.06;letter-spacing:-.02em}
-.aperks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:16px}
-.aperks li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:14px;align-items:center;font-size:14.5px;color:var(--muted);max-width:46ch}
-.aperks b{display:block;color:var(--ink);font-size:15.5px;font-weight:700}
-.sticker{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;font-size:26px;background:var(--surface);box-shadow:var(--sh-1);border:1px solid var(--line)}
-.sticker.s1{transform:rotate(-6deg)}.sticker.s2{transform:rotate(4deg);background:var(--mark);border-color:transparent}.sticker.s3{transform:rotate(-3deg)}
-.acard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);width:100%;box-shadow:var(--sh-2);padding:28px 26px 24px;display:flex;flex-direction:column;gap:18px}
-.acard h2{font-family:var(--f-display);font-weight:700;font-size:24px}
 .abox{display:flex;flex-direction:column;gap:16px}
-.acard .lead{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.acard .lead{margin:0;color:var(--muted);font-size:14.5px;line-height:1.45}
 .acard .lead b{color:var(--ink);font-weight:700;overflow-wrap:anywhere}
+.acard .cta{border-radius:999px;padding:16px 20px;font-size:16px}
 .codein{font-family:var(--f-display)!important;font-size:26px!important;font-weight:700!important;letter-spacing:.32em;text-align:center;padding:14px 10px!important}
 .codein::placeholder{letter-spacing:.32em;opacity:.3}
 .arow{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .arow .linkbtn{padding:2px 0}
 .linkbtn:disabled{opacity:.6;cursor:default;text-decoration:none}
 .linkbtn.alt{align-self:center;color:var(--ink)}
-.switch{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:var(--r-m);padding:4px;gap:4px}
-.switch button{border:0;background:none;border-radius:11px;padding:10px;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
+.switch{display:grid;grid-template-columns:1fr 1fr;background:var(--sunk);border-radius:999px;padding:4px;gap:4px}
+.switch button{border:0;background:none;border-radius:999px;padding:10px;font-weight:700;font-size:14px;cursor:pointer;color:var(--muted)}
 .switch button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--sh-1)}
+.lband{background:#15131F;color:#fff}
+.lband .lwrap{padding-top:88px;padding-bottom:88px;display:flex;flex-direction:column;gap:44px}
+.lband h2,.lhow h2,.ltasks h2,.lend h2{font-family:var(--f-display);font-weight:600;font-size:clamp(28px,3.4vw,44px);letter-spacing:-.03em;line-height:1.12;max-width:760px}
+.lstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px}
+.lstats div{border-top:2px solid #C8F542;padding-top:20px;display:flex;flex-direction:column;gap:10px}
+.lstats b{font-family:var(--f-display);font-weight:600;font-size:64px;letter-spacing:-.04em;color:#C8F542;line-height:1.1}
+.lstats span{font-size:17px;line-height:1.5;color:#D6D4E0}
+.lsrc{margin:0;font-size:14px;color:#A9A6B8}
+.lhow{padding-top:96px;padding-bottom:96px;display:flex;flex-direction:column;gap:44px}
+.lsteps{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+.lsteps>div{background:#F2F1F7;color:#15131F;border-radius:28px;padding:32px;display:flex;flex-direction:column;gap:16px;min-height:260px}
+.lsteps>div.lime{background:#C8F542}
+.ln{width:52px;height:52px;border-radius:16px;background:#5B3DF5;color:#fff;font:600 20px/1 var(--f-display);display:grid;place-items:center}
+.lime .ln{background:#15131F;color:#C8F542}
+.lsteps h3{font-family:var(--f-display);font-weight:600;font-size:22px;letter-spacing:-.02em}
+.lsteps p{margin:0;font-size:17px;line-height:1.55;color:#5E5B6E}
+.lsteps .lime p{color:#15131F}
+.ltasks{background:#5B3DF5;color:#fff;border-radius:40px;padding:clamp(28px,5vw,64px);display:flex;flex-wrap:wrap;gap:40px 48px;align-items:center;margin-bottom:96px}
+.ltasks-t{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.ltasks h2 span{color:#C8F542}
+.ltasks-t p{margin:0;font-size:18px;line-height:1.55;color:#E4DEFF}
+.lrank{flex:1 1 340px;min-width:0;background:#fff;color:#15131F;border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:4px}
+.lrank p{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5E5B6E}
+.lrank div{display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;font-size:16px}
+.lrank div.on{background:#F2F1F7}
+.lrank div>b:first-child{width:20px}
+.lav{width:40px;height:40px;border-radius:50%;background:#5B3DF5;color:#fff;font-weight:700;display:grid;place-items:center}
+.lav.n{background:#15131F;color:#C8F542}.lav.l{background:#C8F542;color:#15131F}
+.lnm{flex:1;font-weight:600}
+.lend{background:#F2F1F7;color:#15131F}
+.lend .lwrap{padding-top:96px;padding-bottom:96px;display:flex;flex-direction:column;align-items:center;gap:24px;text-align:center}
+.lend h2{max-width:780px;font-size:clamp(30px,4vw,52px);line-height:1.08}
+.lend h2 span{color:#5B3DF5}
+.lend p{margin:0;font-size:14px;color:#5E5B6E}
+.lfoot{padding-top:28px;padding-bottom:28px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;font-size:14px;color:var(--muted)}
+.lfoot .wm{font-size:16px;color:var(--ink)}
 
 /* ---------- Формы и кнопки ---------- */
 .form{display:flex;flex-direction:column;gap:14px}
@@ -144,30 +198,29 @@ em.hint{font-style:normal}
 .locbtn svg{width:21px;height:21px}
 .locbtn.busy svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.medot{position:relative;width:22px;height:22px;box-sizing:border-box;border-radius:50%;background:#3346F0;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35)}
-.medot::after{content:"";position:absolute;inset:-3px;border-radius:50%;background:#3346F0;opacity:.45;animation:mepulse 2s ease-out infinite;z-index:-1}
+.medot{position:relative;width:22px;height:22px;box-sizing:border-box;border-radius:50%;background:#5B3DF5;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35)}
+.medot::after{content:"";position:absolute;inset:-3px;border-radius:50%;background:#5B3DF5;opacity:.45;animation:mepulse 2s ease-out infinite;z-index:-1}
 @keyframes mepulse{to{transform:scale(2.6);opacity:0}}
 @media (prefers-reduced-motion:reduce){.medot::after{animation:none;opacity:0}}
-.locbtn.on{color:#3346F0}
-.locbtn.follow{background:#3346F0;color:#fff}
+.locbtn.on{color:#5B3DF5}
+.locbtn.follow{background:#5B3DF5;color:#fff}
 .addbar{position:absolute;left:12px;right:12px;margin:0 auto;bottom:22px;z-index:600;background:var(--ink);color:var(--paper);border-radius:var(--r-m);padding:12px 12px 12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:600;font-size:14.5px;box-shadow:var(--sh-2);max-width:560px;flex-wrap:wrap;animation:rise .2s ease-out}
 .addbtns{display:flex;gap:6px}
 .addbar button{border:0;background:var(--paper);color:var(--ink);border-radius:10px;padding:8px 12px;font-weight:700;font-size:13.5px;cursor:pointer}
 .addbar #addHere{background:var(--mark);color:var(--mark-ink)}
 @keyframes rise{from{transform:translateY(10px);opacity:0}}
 
-/* Метки на карте */
-.pin{position:relative;width:40px;height:48px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.28))}
-.pin .b{position:absolute;left:2px;top:0;width:36px;height:36px;border-radius:50%;border:3px solid #fff}
-.pin .b::after{content:"";position:absolute;left:50%;bottom:-11px;transform:translateX(-50%);border:7px solid transparent;border-top:9px solid #fff;border-bottom:0}
-.pin .e{position:absolute;left:2px;top:0;width:36px;height:36px;display:grid;place-items:center;font-size:17px}
-.pin.mine .b{border-color:var(--ink)}
-.pin.mine .b::after{border-top-color:var(--ink)}
-.pin.done{opacity:.85}
-.pin .flag{position:absolute;right:-10px;top:-8px;height:20px;padding:0 5px;border-radius:7px;font:700 11px/20px var(--f-display);border:2px solid #fff;transform:rotate(6deg)}
-.pin.task .flag{background:var(--mark);color:var(--mark-ink)}
-.pin.done .flag{background:var(--good);color:#fff;transform:none;border-radius:999px;min-width:20px;text-align:center}
-.newpin .b{background:var(--ink)!important;animation:drop .35s cubic-bezier(.3,1.5,.6,1)}
+/* Метки на карте — капли из айдентики */
+.pin{position:relative;width:40px;height:53px;filter:drop-shadow(0 3px 4px rgba(21,19,31,.3))}
+.pin .pg{position:absolute;z-index:1;inset:0;width:40px;height:53px;overflow:visible}
+.pin .e{position:absolute;z-index:2;left:7px;top:6px;width:26px;height:26px;display:grid;place-items:center;font:700 13.5px/1 var(--f-display);font-size:13.5px}
+.pin .pk{width:17px;height:17px;fill:none;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.pin.task .pg path{fill:#5B3DF5}.pin.task .pg circle{fill:#fff}.pin.task .e{color:#5B3DF5}
+.pin.done .pg path{fill:#15131F}.pin.done .pg circle{fill:#C8F542}.pin.done .pk{stroke:#15131F}
+.pin.mine .pg path{fill:#fff;stroke:#15131F;stroke-width:2.2}.pin.mine .pg circle{fill:#F2F1F7}.pin.mine .e{font:400 15px/1 system-ui,sans-serif}
+.pin .flag{position:absolute;z-index:3;right:-12px;top:-7px;height:20px;padding:0 6px;border-radius:999px;font:700 11px/20px var(--f-display);border:2px solid #fff;background:var(--mark);color:var(--mark-ink)}
+.newpin .pg path{fill:#15131F}.newpin .pg circle{fill:#C8F542}.newpin .e{color:#15131F;font-size:20px}
+.newpin{animation:drop .35s cubic-bezier(.3,1.5,.6,1)}
 @keyframes drop{from{transform:translateY(-14px)}}
 .leaflet-container{font-family:var(--f-body);background:var(--sunk)}
 .leaflet-control-attribution{font-size:10px}
@@ -499,13 +552,6 @@ div.tl-body{cursor:default}
 /* ---------- Телефон: карта на весь экран + нижнее меню ---------- */
 @media (max-width:860px){
   :root{--nav:calc(62px + env(safe-area-inset-bottom))}
-  .auth{grid-template-columns:minmax(0,1fr);grid-template-areas:"hero" "card" "perks";row-gap:20px;padding:24px 16px 32px;align-content:start}
-  .ahero{gap:16px}
-  .ahero h1{font-size:30px}
-  .aperks{gap:12px}
-  .aperks li{grid-template-columns:44px minmax(0,1fr);font-size:13.5px}
-  .sticker{width:44px;height:44px;font-size:22px;border-radius:13px}
-  .acard{padding:22px 18px 20px;box-shadow:var(--sh-1);justify-self:stretch;max-width:none}
 
   .app{position:fixed;inset:0;height:auto;padding:0;gap:0}
   .top{padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));background:var(--paper);position:relative;z-index:700}
@@ -613,3 +659,68 @@ div.tl-body{cursor:default}
 .askacts{display:flex;gap:10px;justify-content:flex-end}
 .askacts .sbtn{flex:1}
 .sbtn.danger{background:var(--warn);color:#fff}
+
+/* ---------- Айдентика «Апогей» в приложении (29.10.2026) ---------- */
+h1,h2,h3,.ptitle{letter-spacing:-.02em}
+.ptitle,.acard h2,.modal h2{font-weight:600}
+.brand b.wm{font-size:20px}
+.score .pts-sticker{background:var(--ink);color:var(--mark);border-radius:999px;transform:none;padding:8px 14px;box-shadow:none}
+.score .r{color:var(--mark)}
+.score .av{box-shadow:0 0 0 2px var(--paper),0 0 0 3.5px var(--route)}
+.pts-sticker,.rew,.plusb,.flag-pts{border-radius:999px;padding-left:.6em;padding-right:.6em}
+/* кнопки — «таблетки» */
+.cta,.sbtn,.sbtn.sm{border-radius:999px}
+.cta{padding:15px 22px}
+.sbtn{padding:11px 18px}
+.sbtn.sm{padding:8px 14px}
+.cta:hover:not(:disabled),.sbtn:hover:not(:disabled),.fab:hover{filter:brightness(1.08)}
+/* фильтры: туман, выбранный — ночь */
+.chip{border:0;background:var(--sunk);padding:9px 16px;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.maptools{gap:8px}
+.maptools .chip{background:var(--surface);box-shadow:0 6px 18px rgba(21,19,31,.08)}
+.maptools .chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:transparent}
+/* поля ввода */
+.field input,.field textarea,.input{border-radius:16px;padding:13px 16px}
+/* кнопка «Добавить место» и «Где я» */
+.fab{box-shadow:0 10px 24px rgba(91,61,245,.35)}
+.locbtn{border-radius:50%}
+.addbar{border-radius:999px;padding:10px 10px 10px 20px}
+.addbar button{border-radius:999px;padding:9px 14px}
+/* вкладки */
+.tab[aria-selected="true"]{background:var(--route-soft);color:var(--route)}
+.count{background:var(--mark);color:var(--mark-ink)}
+.count.warn{background:var(--route);color:var(--route-ink)}
+/* карточки и окна */
+.panel,.mapwrap{border-radius:var(--r-xl)}
+.modal{border-radius:var(--r-xl)}
+.empty,.howto{border-radius:var(--r-l)}
+
+@media (max-width:860px){
+  .lhead{padding:14px 16px;gap:12px}
+  .lbrand{font-size:17px}
+  .lnav{display:none}
+  .lwrap{padding-left:16px;padding-right:16px}
+  .lhero{padding-top:8px;padding-bottom:56px;gap:28px}
+  .lhero-t{gap:18px}
+  .lhero-t p{font-size:17px}
+  .lcta{font-size:16px;padding:15px 22px}
+  .lcta.line{padding:13.5px 20px}
+  .lhero-c{border-radius:28px;padding:150px 12px 12px}
+  .acard{padding:22px 18px 18px;border-radius:22px}
+  .lband .lwrap,.lhow,.lend .lwrap{padding-top:64px;padding-bottom:64px}
+  .lstats b{font-size:52px}
+  .lsteps>div{min-height:0;padding:26px}
+  .ltasks{border-radius:28px;margin-bottom:64px}
+  .brand b.wm{font-size:17px}
+  .panel,.mapwrap,.modal{border-radius:0}
+  .modal{border-radius:var(--r-xl) var(--r-xl) 0 0}
+  .tab[aria-selected="true"]{background:none}
+}
+@media (max-width:380px){ .lhead .lcta.sm{padding:10px 14px} }
+@media (prefers-color-scheme: dark){
+  .score .pts-sticker{background:var(--sunk);color:var(--mark)}
+  .lhero-c{background:#24212F}
+  .lhero-c .lroads path[stroke="#fff"]{stroke:#35314A}
+  .lhero-c .lroads ellipse{fill:#2C3A22}
+}

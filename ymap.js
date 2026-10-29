@@ -74,7 +74,7 @@
       const c = arr(latlng), z = lastMap ? lastMap.getZoom() : 12;
       const mpp = 156543.03 * Math.cos(c[0] * Math.PI / 180) / Math.pow(2, z);
       this.g = new ymaps.Circle([c, (o.radius || 5) * mpp], {}, {
-        fillColor: o.fillColor || '#3346F0', fillOpacity: o.fillOpacity ?? 0.9,
+        fillColor: o.fillColor || '#5B3DF5', fillOpacity: o.fillOpacity ?? 0.9,
         strokeColor: o.color || '#ffffff', strokeWidth: o.weight ?? 1.5, strokeOpacity: 1,
         zIndex: 300, cursor: 'pointer', hasBalloon: false,
       });
@@ -86,8 +86,8 @@
     constructor(latlng, o = {}) {
       super(); this.r = o.radius || 10;
       this.g = new ymaps.Circle([arr(latlng), this.r], {}, {
-        fillColor: o.fillColor || '#3346F0', fillOpacity: o.fillOpacity ?? 0.15,
-        strokeColor: o.color || '#3346F0', strokeWidth: o.weight ?? 1, strokeOpacity: o.opacity ?? 0.5,
+        fillColor: o.fillColor || '#5B3DF5', fillOpacity: o.fillOpacity ?? 0.15,
+        strokeColor: o.color || '#5B3DF5', strokeWidth: o.weight ?? 1, strokeOpacity: o.opacity ?? 0.5,
         zIndex: 100, hasBalloon: false, hasHint: false,
         interactivityModel: o.interactive === false ? 'default#transparent' : 'default#geoObject',
       });
@@ -101,7 +101,7 @@
     constructor(pts, o = {}) {
       super();
       this.g = new ymaps.Polyline(pts.map(arr), {}, {
-        strokeColor: o.color || '#3346F0', strokeWidth: o.weight || 4, strokeOpacity: o.opacity ?? 1,
+        strokeColor: o.color || '#5B3DF5', strokeWidth: o.weight || 4, strokeOpacity: o.opacity ?? 1,
         strokeStyle: o.dashArray ? 'dot' : 'solid', zIndex: 200, interactivityModel: 'default#transparent',
       });
     }

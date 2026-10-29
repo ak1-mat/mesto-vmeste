@@ -367,7 +367,7 @@ function renderWizard(fresh) {
 
 /* ---------- Маршрут на карте ---------- */
 let routeLayer = null;
-const routeColor = () => getComputedStyle(document.documentElement).getPropertyValue('--route').trim() || '#2F4BFF';
+const routeColor = () => getComputedStyle(document.documentElement).getPropertyValue('--route').trim() || '#5B3DF5';
 function showRoute(planId) {
   const pl = S.plans.find(x => x.id === planId);
   if (!pl || !pl.route?.length) return;

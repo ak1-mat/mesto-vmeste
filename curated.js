@@ -662,7 +662,7 @@ async function showDayRoute() {
   map.getContainer().classList.add('routing');
   if (typeof hideRoute === 'function' && S.routePlan) hideRoute();
   const pts = [D.start, ...D.plan.route, ...(D.plan.end ? [D.plan.end] : [])];
-  const col = getComputedStyle(document.documentElement).getPropertyValue('--route').trim() || '#2F4BFF';
+  const col = getComputedStyle(document.documentElement).getPropertyValue('--route').trim() || '#5B3DF5';
   const legs = [];
   for (let i = 1; i < pts.length; i++) {
     const how = legTime(pts[i - 1], pts[i], D.mode).how;
