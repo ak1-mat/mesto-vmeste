@@ -724,3 +724,12 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
   .lhero-c .lroads path[stroke="#fff"]{stroke:#35314A}
   .lhero-c .lroads ellipse{fill:#2C3A22}
 }
+
+/* Совместный маршрут: порядок точек и последнее изменение */
+.ract{display:flex;align-items:center;gap:6px}
+.rmove{display:inline-flex;background:var(--sunk);border-radius:999px;padding:2px}
+.rmove button{width:30px;height:30px;border:0;background:none;border-radius:50%;font:700 15px/1 var(--f-body);color:var(--ink);cursor:pointer}
+.rmove button:disabled{opacity:.25;cursor:default}
+.wchange{font-size:13px;color:var(--muted);background:var(--sunk);border-radius:12px;padding:8px 12px;margin:-2px 0 2px}
+@media (hover:hover){ .rmove button:not(:disabled):hover{background:var(--surface);color:var(--route)} }
+@media (max-width:420px){ .rmove button{width:34px;height:34px} .ritem{grid-template-columns:26px 40px minmax(0,1fr) auto;gap:8px} .ritem img,.ritem .thumb.sm{width:40px;height:40px} }

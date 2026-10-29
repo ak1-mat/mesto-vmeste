@@ -974,7 +974,7 @@ async function start(session) {
   setTab(isMobile() ? 'map' : S.tab === 'map' ? 'tasks' : S.tab);
   setTimeout(() => map.invalidateSize(), 50);
   store.set('mv_seen', '1');
-  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); geoAuto(); if (needsWelcome()) openWelcome(); }
+  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); geoAuto(); if (typeof startLive === 'function') startLive(); if (needsWelcome()) openWelcome(); }
   catch (e) { hideBoot(); toast(errText(e), 5000); console.error(e); return; }
   // Приглашение по ссылке ?invite=КОД
   const inv = (new URLSearchParams(location.search).get('invite') || store.get('mv_invite') || '').toUpperCase();
@@ -990,6 +990,7 @@ sb.auth.onAuthStateChange((event, session) => {
   if (session?.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
     if (S.user?.id !== session.user.id) setTimeout(() => start(session), 0); // вне колбэка, чтобы не блокировать auth
   } else if (!session) {
+    if (typeof stopLive === 'function') stopLive();
     S.user = null; clearInterval(timer); showAuth();
   }
 });
