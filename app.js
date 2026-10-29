@@ -331,18 +331,61 @@ function stopAdding() {
   if (newMarker) { newMarker.remove(); newMarker = null; }
 }
 $('#fab').onclick = startAdding;
-let meMarker = null;
+/* ---------- Геопозиция: синяя точка «я здесь», которая двигается вместе с вами ----------
+   1-е нажатие — найти меня и следить (карта едет за точкой); сдвинули карту пальцем — слежение
+   выключается, точка остаётся; ещё нажатие — снова к себе. Когда вкладка скрыта, GPS отключается. */
+const GEO = { watch: null, follow: false, last: null, dot: null, ring: null, wanted: false, centered: false };
+function geoBtn() {
+  const b = $('#locBtn'); if (!b) return;
+  b.classList.toggle('on', !!GEO.last); b.classList.toggle('follow', GEO.follow);
+  b.title = b.ariaLabel = GEO.follow ? 'Карта следует за вами' : GEO.last ? 'Вернуться к себе' : 'Показать, где я';
+}
+function geoDraw(p) {
+  const ll = [p.coords.latitude, p.coords.longitude], acc = Math.round(p.coords.accuracy || 0);
+  GEO.last = { lat: ll[0], lng: ll[1], acc, t: Date.now() };
+  $('#locBtn')?.classList.remove('busy');
+  const r = Math.min(Math.max(acc, 5), 3000);
+  if (!GEO.dot) {
+    GEO.ring = L.circle(ll, { radius: r, color: '#3346F0', weight: 1, opacity: 0.35, fillColor: '#3346F0', fillOpacity: 0.1, interactive: false }).addTo(map);
+    GEO.dot = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: '<div class="medot"></div>' }), interactive: false, zIndexOffset: 1000, title: '' }).addTo(map);
+  } else { GEO.dot.setLatLng(ll); GEO.ring.setLatLng(ll); GEO.ring.setRadius(r); }
+  if (GEO.follow) {
+    if (!GEO.centered) { GEO.centered = true; map.setView(ll, Math.max(map.getZoom(), acc > 500 ? 14 : 16)); }
+    else map.panTo(ll);
+  }
+  geoBtn();
+}
+function geoFail(err) {
+  $('#locBtn')?.classList.remove('busy');
+  if (GEO.last) return;   // точка уже есть — временный сбой GPS не показываем
+  geoStop(); GEO.wanted = false; GEO.follow = false;
+  toast(err && err.code === 1
+    ? 'Сайту запрещён доступ к геопозиции. Разрешите его в настройках браузера (значок замка у адреса) и нажмите кнопку ещё раз'
+    : 'Не получилось определить, где вы. Проверьте, что геолокация включена, и попробуйте ещё раз', 5000);
+  geoBtn();
+}
+function geoStart() {
+  if (GEO.watch != null || !navigator.geolocation) return;
+  GEO.wanted = true;
+  GEO.watch = navigator.geolocation.watchPosition(geoDraw, geoFail, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+}
+function geoStop() { if (GEO.watch != null) navigator.geolocation.clearWatch(GEO.watch); GEO.watch = null; }
 $('#locBtn').onclick = () => {
   if (!navigator.geolocation) return toast('Этот браузер не умеет определять местоположение');
-  const btn = $('#locBtn'); btn.classList.add('busy');
-  navigator.geolocation.getCurrentPosition(p => {
-    btn.classList.remove('busy');
-    const ll = [p.coords.latitude, p.coords.longitude];
-    if (meMarker) meMarker.setLatLng(ll);
-    else meMarker = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [18, 18], iconAnchor: [9, 9], html: '<div class="medot"></div>' }), interactive: false, zIndexOffset: -100 }).addTo(map);
-    map.setView(ll, Math.max(map.getZoom(), 15));
-  }, () => { btn.classList.remove('busy'); toast('Не удалось определить, где вы. Разрешите доступ к геолокации'); }, { enableHighAccuracy: true, timeout: 10000 });
+  GEO.follow = true;
+  if (GEO.last) { GEO.centered = true; map.setView([GEO.last.lat, GEO.last.lng], Math.max(map.getZoom(), 15)); }
+  else { GEO.centered = false; $('#locBtn').classList.add('busy'); }
+  geoStart(); geoBtn();
 };
+// пользователь сам двигает карту — перестаём тянуть её к точке
+['pointerdown', 'wheel'].forEach(t => $('#map').addEventListener(t, () => { if (GEO.follow) { GEO.follow = false; geoBtn(); } }, { passive: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) geoStop(); else if (GEO.wanted) geoStart();
+});
+// если доступ к геопозиции уже разрешён раньше — сразу показать точку (карту не двигаем)
+function geoAuto() {
+  try { navigator.permissions?.query({ name: 'geolocation' }).then(s => { if (s.state === 'granted') geoStart(); }).catch(() => {}); } catch (e) { /* старые браузеры */ }
+}
 $('#addCancel').onclick = stopAdding;
 $('#addHere').onclick = () => {
   if (!navigator.geolocation) return toast('Геолокация недоступна в этом браузере');
@@ -913,7 +956,7 @@ async function start(session) {
   setTab(isMobile() ? 'map' : S.tab === 'map' ? 'tasks' : S.tab);
   setTimeout(() => map.invalidateSize(), 50);
   store.set('mv_seen', '1');
-  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); if (needsWelcome()) openWelcome(); }
+  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); geoAuto(); if (needsWelcome()) openWelcome(); }
   catch (e) { hideBoot(); toast(errText(e), 5000); console.error(e); return; }
   // Приглашение по ссылке ?invite=КОД
   const inv = (new URLSearchParams(location.search).get('invite') || store.get('mv_invite') || '').toUpperCase();

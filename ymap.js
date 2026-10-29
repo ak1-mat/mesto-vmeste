@@ -81,6 +81,22 @@
     }
   }
 
+  // Круг с радиусом в метрах (точность геопозиции)
+  class YCircle extends YObj {
+    constructor(latlng, o = {}) {
+      super(); this.r = o.radius || 10;
+      this.g = new ymaps.Circle([arr(latlng), this.r], {}, {
+        fillColor: o.fillColor || '#3346F0', fillOpacity: o.fillOpacity ?? 0.15,
+        strokeColor: o.color || '#3346F0', strokeWidth: o.weight ?? 1, strokeOpacity: o.opacity ?? 0.5,
+        zIndex: 100, hasBalloon: false, hasHint: false,
+        interactivityModel: o.interactive === false ? 'default#transparent' : 'default#geoObject',
+      });
+    }
+    setLatLng(p) { this.g.geometry.setCoordinates(arr(p)); return this; }
+    setRadius(r) { this.r = r; this.g.geometry.setRadius(r); return this; }
+    getLatLng() { return ll(this.g.geometry.getCoordinates()); }
+  }
+
   class YPolyline extends YObj {
     constructor(pts, o = {}) {
       super();
@@ -167,6 +183,7 @@
     divIcon: o => o,
     marker: (p, o) => new YMarker(p, o),
     circleMarker: (p, o) => new YCircleMarker(p, o),
+    circle: (p, o) => new YCircle(p, o),
     polyline: (p, o) => new YPolyline(p, o),
     layerGroup: () => new YGroup(),
     latLngBounds: p => new YBounds(p),
