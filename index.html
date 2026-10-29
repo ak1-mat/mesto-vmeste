@@ -15,21 +15,17 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="style.css?v=20261029d">
+<link rel="stylesheet" href="style.css?v=20261029e">
 </head>
 <body data-view="tasks">
 
 <!-- Заставка, пока проверяем вход -->
 <div class="boot" id="boot" aria-label="Загрузка"><span class="logo lg"></span></div>
 
-<!-- Экран входа = главная страница (дизайн «Апогей», 29.10.2026) -->
+<!-- Экран входа = главная страница -->
 <section id="auth" class="auth" hidden>
   <header class="lhead">
     <a class="lbrand" href="#auth"><span class="logo"></span><span class="wm">место <span>вместе</span></span></a>
-    <nav class="lnav" aria-label="Основное меню">
-      <a href="#how">Как это работает</a>
-      <a href="#ltasks">Задания</a>
-    </nav>
     <a class="lcta dark sm" href="#acard" data-go-login>Войти</a>
   </header>
 
@@ -38,10 +34,6 @@
       <span class="lbadge">Карта рекомендаций твоих друзей</span>
       <h1>Все крутые места друзей — <span>на одной карте</span></h1>
       <p>Больше никаких скриншотов и потерянных ссылок в чатах. Сохраняйте места, ставьте реакции на метки друзей и решайте вместе, куда пойти сегодня.</p>
-      <div class="lbtns">
-        <a class="lcta" href="#acard" data-go-login>Начать бесплатно</a>
-        <a class="lcta line" href="#how">Как это работает</a>
-      </div>
     </div>
     <div class="lhero-c">
       <div class="lmap" aria-hidden="true">
@@ -98,18 +90,6 @@
     </div>
   </div>
 
-  <section class="lband">
-    <div class="lwrap">
-      <h2>Советы друзей теряются в скриншотах и чатах</h2>
-      <div class="lstats">
-        <div><b>86%</b><span>хоть раз теряли место, которое советовал друг</span></div>
-        <div><b>74%</b><span>хранят места минимум в двух разных приложениях</span></div>
-        <div><b>73%</b><span>признаются, что с друзьями сложно договориться, куда пойти</span></div>
-      </div>
-      <p class="lsrc">Опрос команды «Апогей», октябрь 2026, 37 участников.</p>
-    </div>
-  </section>
-
   <section class="lwrap lhow" id="how">
     <h2>Как это работает</h2>
     <div class="lsteps">
@@ -124,7 +104,6 @@
       <div class="ltasks-t">
         <h2>Не просто сохраняй — <span>иди и проверяй</span></h2>
         <p>Метка друга становится заданием. Приходишь на место, снимаешь фото прямо в сервисе — получаешь баллы и поднимаешься в рейтинге компании.</p>
-        <a class="lcta limeb" href="#acard" data-go-login>Попробовать задания</a>
       </div>
       <div class="lrank" aria-label="Пример рейтинга компании">
         <p>Рейтинг компании</p>
@@ -145,7 +124,6 @@
 
   <footer class="lwrap lfoot">
     <span class="wm">место <span>вместе</span></span>
-    <span>Сделано командой «Апогей», 2026</span>
   </footer>
 </section>
 
@@ -210,10 +188,10 @@
   // Запасной адрес, если jsdelivr недоступен
   if (!window.supabase) document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
 </script>
-<script src="config.js?v=20261029d"></script>
-<script src="ymap.js?v=20261029d"></script>
-<script src="app.js?v=20261029d"></script>
-<script src="walks.js?v=20261029d"></script>
-<script src="curated.js?v=20261029d"></script>
+<script src="config.js?v=20261029e"></script>
+<script src="ymap.js?v=20261029e"></script>
+<script src="app.js?v=20261029e"></script>
+<script src="walks.js?v=20261029e"></script>
+<script src="curated.js?v=20261029e"></script>
 </body>
 </html>

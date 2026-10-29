@@ -1,4 +1,4 @@
-/* «Место вместе» — оформление по айдентике команды «Апогей» (29.10.2026).
+/* «Место вместе» — оформление по айдентике (29.10.2026).
    Фиалка — главное действие, лайм — баллы и задания, ночь — текст и тёмные плашки, туман — подложки.
    Заголовки — Unbounded, текст — Manrope. Кнопки и фильтры — «таблетки». */
 :root{
@@ -138,7 +138,7 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .lend h2{max-width:780px;font-size:clamp(30px,4vw,52px);line-height:1.08}
 .lend h2 span{color:#5B3DF5}
 .lend p{margin:0;font-size:14px;color:#5E5B6E}
-.lfoot{padding-top:28px;padding-bottom:28px;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;font-size:14px;color:var(--muted)}
+.lfoot{padding-top:28px;padding-bottom:28px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;font-size:14px;color:var(--muted)}
 .lfoot .wm{font-size:16px;color:var(--ink)}
 
 /* ---------- Формы и кнопки ---------- */
@@ -660,7 +660,7 @@ div.tl-body{cursor:default}
 .askacts .sbtn{flex:1}
 .sbtn.danger{background:var(--warn);color:#fff}
 
-/* ---------- Айдентика «Апогей» в приложении (29.10.2026) ---------- */
+/* ---------- Айдентика в приложении (29.10.2026) ---------- */
 h1,h2,h3,.ptitle{letter-spacing:-.02em}
 .ptitle,.acard h2,.modal h2{font-weight:600}
 .brand b.wm{font-size:20px}
