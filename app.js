@@ -416,6 +416,24 @@ function modal(html, onClose) {
   $('#modalRoot').appendChild(o);
   return o.querySelector('.modal');
 }
+/* Своё окно подтверждения вместо confirm(): встроенные браузеры (Telegram, VK) и «приложение на экране»
+   часто молча отвечают «нет» на confirm(), и кнопка будто не работает */
+function ask(text, okLabel = 'Удалить') {
+  return new Promise(res => {
+    const o = document.createElement('div');
+    o.className = 'overlay askov';
+    o.innerHTML = `<div class="modal askbox" role="alertdialog" aria-modal="true"><p></p><div class="askacts"><button class="sbtn ghost" data-no>Отмена</button><button class="sbtn danger" data-yes></button></div></div>`;
+    o.querySelector('p').textContent = text; o.querySelector('[data-yes]').textContent = okLabel;
+    const done = v => { document.removeEventListener('keydown', key, true); o.remove(); res(v); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    document.addEventListener('keydown', key, true);
+    o.onclick = e => { if (e.target === o) done(false); };
+    o.querySelector('[data-no]').onclick = () => done(false);
+    o.querySelector('[data-yes]').onclick = () => done(true);
+    document.body.appendChild(o);
+    o.querySelector('[data-yes]').focus();
+  });
+}
 function closeModal() {
   const o = $('#modalRoot .overlay');
   if (!o) return;
@@ -491,9 +509,10 @@ function openPlace(id) {
   m.querySelector('#doTask')?.addEventListener('click', () => openCamera(p));
   m.querySelector('#editPlace')?.addEventListener('click', () => openEditPlace(p));
   m.querySelector('#delPlace')?.addEventListener('click', async () => {
-    if (!confirm('Удалить место «' + p.title + '»? Это нельзя отменить.')) return;
-    const { error } = await sb.from('places').delete().eq('id', p.id);
+    if (!(await ask('Удалить место «' + p.title + '»? Это нельзя отменить.'))) return;
+    const { data, error } = await sb.from('places').delete().eq('id', p.id).select('id');
     if (error) return toast(errText(error));
+    if (data && !data.length) return toast('Не получилось удалить: база не дала прав. Обновите страницу и попробуйте ещё раз', 4500);
     closeModal(); toast('Место удалено'); refresh();
   });
 }
@@ -855,7 +874,7 @@ function renderFriends(body) {
   body.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => respond(b.dataset.acc, true));
   body.querySelectorAll('[data-dec]').forEach(b => b.onclick = () => respond(b.dataset.dec, false));
   body.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
-    if (!confirm('Удалить из друзей? Вы перестанете видеть места друг друга.')) return;
+    if (!(await ask('Удалить из друзей? Вы перестанете видеть места друг друга.'))) return;
     const { error } = await sb.rpc('remove_friend', { p_friend: b.dataset.rm });
     if (error) return toast(errText(error));
     refresh();

@@ -600,3 +600,11 @@ div.tl-body{cursor:default}
   .ymaps .locbtn{bottom:102px}
   .ymaps .pickbar{bottom:98px}
 }
+
+/* Окно подтверждения */
+.askov{z-index:3000}
+.askbox{max-width:380px;padding:22px 20px 18px}
+.askbox p{margin:0 0 18px;font-size:15.5px;line-height:1.45;font-weight:600}
+.askacts{display:flex;gap:10px;justify-content:flex-end}
+.askacts .sbtn{flex:1}
+.sbtn.danger{background:var(--warn);color:#fff}

@@ -483,7 +483,7 @@ function openWalk(id) {
     await refresh(); openWalk(pl.id);
   });
   m.querySelector('[data-leave]').onclick = async () => {
-    if (!confirm(mine ? 'Отменить прогулку для всех?' : 'Выйти из прогулки?')) return;
+    if (!(await ask(mine ? 'Отменить прогулку для всех?' : 'Выйти из прогулки?', mine ? 'Отменить прогулку' : 'Выйти'))) return;
     const r = mine ? await sb.from('plans').delete().eq('id', pl.id)
       : await sb.from('plan_members').delete().match({ plan_id: pl.id, user_id: S.user.id });
     if (r.error) return toast(errText(r.error));
@@ -564,7 +564,7 @@ async function addPointToWalk(pl, it) {
 async function removePointFromWalk(id, pid) {
   const pl = S.plans.find(x => x.id === id); if (!pl) return;
   const p = pl.route.find(x => String(x.id) === pid); if (!p) return;
-  if (!confirm(`Убрать «${p.title}» из маршрута?`)) return;
+  if (!(await ask(`Убрать «${p.title}» из маршрута?`, 'Убрать'))) return;
   const st = routeStats(pl.route.filter(x => String(x.id) !== pid));
   const { error } = await sb.rpc('plan_remove_point', { p_plan: id, p_id: pid, p_km: Math.round(st.km * 100) / 100, p_minutes: st.minutes });
   if (error) return toast(rpcErr(error), 5000);
