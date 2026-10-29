@@ -881,7 +881,16 @@ let started = false, timer = null;
 async function start(session) {
   S.user = session.user;
   $('#auth').hidden = true; $('#app').hidden = false;
-  if (!started) { initMap(); started = true; }
+  // Яндекс Карты, если ключ задан и API загрузилось; иначе — прежняя карта
+  started = started || (async () => {
+    const eng = window.MAP_READY ? await window.MAP_READY : 'leaflet';
+    if (eng === 'yandex' && window.YL) {
+      try { window.LEAFLET = window.L; window.L = window.YL; document.body.classList.add('ymaps'); initMap(); return; }
+      catch (e) { console.error('ymaps', e); window.L = window.LEAFLET; document.body.classList.remove('ymaps'); $('#map').innerHTML = ''; $('#map').className = ''; }
+    }
+    initMap();
+  })();
+  await started;
   setTab(isMobile() ? 'map' : S.tab === 'map' ? 'tasks' : S.tab);
   setTimeout(() => map.invalidateSize(), 50);
   store.set('mv_seen', '1');

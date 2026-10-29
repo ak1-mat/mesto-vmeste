@@ -586,3 +586,17 @@ div.tl-body{cursor:default}
   .qgrid{grid-template-columns:1fr 1fr}
   .qopt{font-size:13.5px;padding:10px}
 }
+
+/* ---------- Яндекс Карты ---------- */
+.ymap{background:var(--sunk)}
+.ymk{cursor:pointer}
+@media (hover:hover){ .ymk:hover .cpin{transform:scale(1.12)} }
+/* надпись и ссылки Яндекса внизу карты должны оставаться видны — поднимаем свои кнопки */
+.ymaps .fab{bottom:42px}
+.ymaps .locbtn{bottom:112px}
+.ymaps .pickbar{bottom:100px}
+@media (max-width:860px){
+  .ymaps .fab{bottom:36px}
+  .ymaps .locbtn{bottom:102px}
+  .ymaps .pickbar{bottom:98px}
+}
