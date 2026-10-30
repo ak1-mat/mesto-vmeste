@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="style.css?v=20261029f">
+<link rel="stylesheet" href="style.css?v=20261030a">
 </head>
 <body data-view="tasks">
 
@@ -53,7 +53,7 @@
         <button class="cta" type="submit" id="otpSend">Получить код</button>
       </form>
       <form id="otpCodeForm" class="form" novalidate hidden>
-        <p class="lead">Отправили письмо на <b id="otpTo"></b>. Введите код из него — или просто нажмите в письме кнопку входа. Если письма нет минуту, загляните в «Спам».</p>
+        <p class="lead">Отправили письмо на <b id="otpTo"></b>. Введите 6 цифр из него. Если письма нет минуту, загляните в «Спам».</p>
         <label class="field"><span>Код из письма</span>
           <input class="codein" type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000" id="otpCode">
         </label>
@@ -141,6 +141,10 @@
     <div class="mapwrap">
       <div id="map" aria-label="Карта мест"></div>
       <div class="maptools" id="filters"></div>
+      <button class="layersbtn" id="layersBtn" type="button" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        <span>Фильтры</span><span class="lb-s" id="layersSum"></span>
+      </button>
       <div class="routebar" id="routebar" hidden></div>
       <div class="addbar" id="addbar" hidden>
         <span class="addtext">Нажмите на карту, где находится место</span>
@@ -188,10 +192,10 @@
   // Запасной адрес, если jsdelivr недоступен
   if (!window.supabase) document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
 </script>
-<script src="config.js?v=20261029f"></script>
-<script src="ymap.js?v=20261029f"></script>
-<script src="app.js?v=20261029f"></script>
-<script src="walks.js?v=20261029f"></script>
-<script src="curated.js?v=20261029f"></script>
+<script src="config.js?v=20261030a"></script>
+<script src="ymap.js?v=20261030a"></script>
+<script src="app.js?v=20261030a"></script>
+<script src="walks.js?v=20261030a"></script>
+<script src="curated.js?v=20261030a"></script>
 </body>
 </html>

@@ -95,6 +95,7 @@ function renderCuratedControl() {
     <button type="button" class="curtoggle" aria-pressed="${CUR.on}" id="curOn" title="Показать или скрыть подборку на карте">
       <span class="star">★</span><span>${curTitle()}</span><span class="sw2" aria-hidden="true"></span></button>
     ${CUR.on ? `<div class="curcats">${Object.entries(CUR_CATS).map(([k, c]) => `<button type="button" class="ccat" data-k="${k}" aria-pressed="${CUR.cats.has(k)}" style="--c:${c.c}">${c.e} ${c.n}</button>`).join('')}</div>` : ''}`;
+  if (typeof layersSummary === 'function') layersSummary();
   box.querySelector('#curOn').onclick = () => { CUR.on = !CUR.on; store.set('mv_cur_on', CUR.on ? '1' : '0'); renderCuratedControl(); renderCuratedLayer(); };
   box.querySelectorAll('.ccat').forEach(b => b.onclick = () => {
     const k = b.dataset.k;

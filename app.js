@@ -334,7 +334,52 @@ function renderFilters() {
   const opts = [['all', 'Все'], ['tasks', 'Задания'], ['mine', 'Мои'], ...Object.entries(CATS).filter(([k]) => S.places.some(p => p.category === k)).map(([k, c]) => [k, c.e + ' ' + c.n])];
   $('#filters').innerHTML = opts.map(([k, n]) => `<button class="chip" data-f="${k}" aria-pressed="${S.filter === k}">${esc(n)}</button>`).join('');
   $('#filters').querySelectorAll('.chip').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(); });
+  layersSummary();
 }
+
+/* ---------- Телефон: все фильтры карты в одной панели снизу ---------- */
+function filterOpts() {
+  return [['all', 'Все места'], ['tasks', 'Задания'], ['mine', 'Мои'], ...Object.entries(CATS).filter(([k]) => S.places.some(p => p.category === k)).map(([k, c]) => [k, c.e + ' ' + c.n])];
+}
+function layersSummary() {
+  const el = $('#layersSum'); if (!el) return;
+  const parts = [];
+  if (S.filter !== 'all') parts.push(((filterOpts().find(o => o[0] === S.filter) || [, ''])[1]).replace(/^[^\p{L}]+/u, ''));
+  if (typeof CUR !== 'undefined') {
+    const all = Object.keys(CUR_CATS).length;
+    parts.push(!CUR.on ? 'без подборки' : CUR.cats.size < all ? `подборка ${CUR.cats.size}/${all}` : '');
+  }
+  const t = parts.filter(Boolean).join(' · ');
+  el.textContent = t; el.hidden = !t;
+  $('#layersBtn').classList.toggle('on', !!t);
+}
+function openLayers() {
+  const hasCur = typeof CUR !== 'undefined';
+  const curCount = k => hasCur ? CUR.list.filter(p => p.cat === k).length : 0;
+  const m = modal(`
+    <div class="mb layers">
+      <h2>Что показать на карте</h2>
+      ${hasCur ? `<div class="sec">Подборка «${esc(curTitle())}»</div>
+      <button type="button" class="lsw" id="lyCur" aria-pressed="${CUR.on}"><span><b>Показывать подборку</b><small>Где поесть, что посмотреть, где погулять и снять фото</small></span><span class="sw2" aria-hidden="true"></span></button>
+      ${CUR.on ? `<div class="lgrid">${Object.entries(CUR_CATS).map(([k, c]) => `<button type="button" class="lopt lcat" data-c="${k}" aria-pressed="${CUR.cats.has(k)}" style="--c:${c.c}"><span class="dot"></span>${c.e} ${c.n}<small>${curCount(k)}</small></button>`).join('')}</div>
+      <p class="hint">Можно выбрать несколько. Хотя бы одна категория остаётся включённой.</p>` : ''}` : ''}
+      <div class="sec">Места друзей и ваши</div>
+      <div class="lgrid">${filterOpts().map(([k, n]) => `<button type="button" class="lopt" data-f="${k}" aria-pressed="${S.filter === k}">${esc(n)}</button>`).join('')}</div>
+      <button type="button" class="cta" id="lyDone">Показать на карте</button>
+    </div>`);
+  const again = () => { const top = $('.modal')?.scrollTop || 0; openLayers(); const md = $('.modal'); if (md) md.scrollTop = top; };
+  m.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(); again(); });
+  m.querySelector('#lyCur')?.addEventListener('click', () => { CUR.on = !CUR.on; store.set('mv_cur_on', CUR.on ? '1' : '0'); renderCuratedControl(); renderCuratedLayer(); layersSummary(); again(); });
+  m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
+    const k = b.dataset.c;
+    CUR.cats.has(k) ? CUR.cats.delete(k) : CUR.cats.add(k);
+    if (!CUR.cats.size) CUR.cats.add(k);
+    store.set('mv_cur_cats', [...CUR.cats].join(','));
+    renderCuratedControl(); renderCuratedLayer(); layersSummary(); again();
+  });
+  m.querySelector('#lyDone').onclick = closeModal;
+}
+$('#layersBtn').onclick = openLayers;
 
 /* Добавление места */
 function startAdding() {
