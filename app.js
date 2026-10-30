@@ -99,13 +99,17 @@ async function uploadPhoto(blob) {
 
 /* ---------- Вход ---------- */
 // Основной способ — код из письма. Пароль оставлен запасным.
+// Вход по коду из почты временно выключен, пока не настроена отправка писем. Вернуть: true
+const OTP_ON = false;
 const OTP_LEN = 6;                 // длина кода в письме (Supabase → Auth → Email OTP Length)
 let authMode = 'login', otpEmail = '', resendAt = 0, resendTimer = null;
 function hideBoot() { $('#boot')?.remove(); }
 function setAuthBox(box) {
+  if (!OTP_ON) box = 'pass';
+  $('#toOtp').hidden = !OTP_ON;
   $('#otpBox').hidden = box !== 'otp';
   $('#passBox').hidden = box !== 'pass';
-  $('#authTitle').textContent = box === 'otp' ? 'Вход по почте' : authMode === 'signup' ? 'Регистрация' : 'Вход с паролем';
+  $('#authTitle').textContent = box === 'otp' ? 'Вход по почте' : authMode === 'signup' ? 'Регистрация' : OTP_ON ? 'Вход с паролем' : 'Вход';
   store.set('mv_auth_box', box);
   ['#otpErr', '#codeErr', '#authErr'].forEach(id => ($(id).textContent = ''));
 }
@@ -123,7 +127,7 @@ function showAuth() {
   const inv = new URLSearchParams(location.search).get('invite');
   if (inv) store.set('mv_invite', inv.toUpperCase());   // переживёт переход по ссылке из письма
   if (inv || store.get('mv_invite')) {
-    $('#serverHint').textContent = 'Вас пригласил друг. Войдите по почте — и вы сразу станете друзьями.';
+    $('#serverHint').textContent = 'Вас пригласил друг. Войдите или зарегистрируйтесь — и вы сразу станете друзьями.';
   }
 }
 // Ссылки главной страницы: плавно листаем внутри экрана входа, адрес не меняем (в нём бывают данные входа из письма)
@@ -133,7 +137,7 @@ $('#auth').addEventListener('click', e => {
   const t = a.getAttribute('href') === '#auth' ? $('#auth') : $(a.getAttribute('href'));
   if (a.hasAttribute('data-go-login')) {
     $('#acard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const inp = !$('#otpBox').hidden ? (!$('#otpEmailForm').hidden ? $('#otpEmail') : $('#otpCode')) : $('#authForm [name=email]');
+    const inp = !$('#otpBox').hidden ? (!$('#otpEmailForm').hidden ? $('#otpEmail') : $('#otpCode')) : $('#nameField').hidden ? $('#authForm [name=email]') : $('#authForm [name=name]');
     setTimeout(() => inp?.focus({ preventScroll: true }), 350);
   } else if (t === $('#auth')) $('#auth').scrollTo({ top: 0, behavior: 'smooth' });
   else t?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -207,7 +211,7 @@ document.querySelectorAll('.switch button').forEach(b => b.onclick = () => {
   authMode = b.dataset.mode;
   document.querySelectorAll('.switch button').forEach(x => x.setAttribute('aria-pressed', x === b));
   $('#nameField').hidden = authMode !== 'signup';
-  $('#authTitle').textContent = authMode === 'signup' ? 'Регистрация' : 'Вход с паролем';
+  $('#authTitle').textContent = authMode === 'signup' ? 'Регистрация' : OTP_ON ? 'Вход с паролем' : 'Вход';
   $('#authBtn').textContent = authMode === 'signup' ? 'Создать аккаунт' : 'Войти';
   $('#authForm [name=password]').autocomplete = authMode === 'signup' ? 'new-password' : 'current-password';
   $('#authErr').textContent = '';
