@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="style.css?v=20261030b">
+<link rel="stylesheet" href="style.css?v=20261110a">
 </head>
 <body data-view="tasks">
 
@@ -43,6 +43,12 @@
   <div class="acard" id="acard">
     <h2 id="authTitle">Вход</h2>
     <p class="invite" id="serverHint"></p>
+    <div id="tgBox" class="tgbox" hidden>
+      <p class="lead" id="tgLead"></p>
+      <button class="cta" type="button" id="tgGo">Войти через Telegram</button>
+      <div class="err" id="tgErr" role="alert"></div>
+      <p class="tgor" id="tgOr"></p>
+    </div>
     <div id="otpBox" class="abox">
       <form id="otpEmailForm" class="form" novalidate>
         <p class="lead">Введите почту — пришлём код для входа. Если вы здесь впервые, аккаунт создастся сам.</p>
@@ -89,6 +95,52 @@
   </div>
     </div>
   </div>
+
+  <!-- Демо продукта: живая иллюстрация главной истории (без настоящих данных) -->
+  <section class="ldemo" id="demo" aria-labelledby="demoT">
+    <div class="lwrap ldemo-in">
+      <div class="ldemo-t">
+        <h2 id="demoT">Как это выглядит</h2>
+        <ol class="dsteps">
+          <li data-step="1"><b>Друг отмечает место</b><span>Кофейню, парк или вид для фото — с парой слов, чем оно крутое.</span></li>
+          <li data-step="2"><b>Оно становится заданием</b><span>Метка появляется у тебя на карте, за неё дают +20.</span></li>
+          <li data-step="3"><b>Приходишь и снимаешь фото</b><span>Прямо в сервисе, на месте — из галереи нельзя.</span></li>
+          <li data-step="4"><b>Растёшь в рейтинге</b><span>Баллы приходят сразу, и видно, кого ты обогнал.</span></li>
+        </ol>
+      </div>
+      <div class="dstage" id="dstage" role="img" aria-label="Анимация: Аня добавила кофейню, у вас появилось задание на 20 баллов, вы сделали фото на месте, получили баллы и обогнали Аню в рейтинге">
+        <div class="dphone" aria-hidden="true">
+          <div class="dscreen">
+            <div class="dtop">
+              <span class="dlogo"></span>
+              <span class="dpts"><span id="dPts">960</span> б.</span>
+            </div>
+            <div class="dchips"><span class="on">Все</span><i></i><i></i><i></i></div>
+            <svg class="droads" viewBox="0 0 300 520" preserveAspectRatio="xMidYMid slice"><path d="M-20 150 C 70 130, 160 200, 320 160" stroke="#fff" stroke-width="16" fill="none"/><path d="M-20 330 C 90 300, 200 370, 320 330" stroke="#fff" stroke-width="11" fill="none"/><path d="M90 -20 C 105 140, 60 300, 110 540" stroke="#fff" stroke-width="13" fill="none"/><path d="M230 -20 C 215 130, 260 280, 215 540" stroke="#fff" stroke-width="9" fill="none"/><path d="M-20 440 C 80 410, 140 470, 210 440 S 290 410, 320 440" stroke="#D9D5F5" stroke-width="28" fill="none"/><ellipse cx="160" cy="250" rx="46" ry="30" fill="#DDF0C2"/></svg>
+            <div class="dpin pin task" style="left:36px;top:170px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">Д</span></div><div class="dpin pin done" style="left:222px;top:236px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e"><svg class="pk" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg></span></div><div class="dpin pin task" style="left:58px;top:330px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">М</span></div>
+            <div class="dpin pin task dnew" style="left:112px;top:206px"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">А</span></div>
+            <span class="dflag">+20</span>
+            <div class="dnote"><span class="dav">А</span><span><b>Аня добавила место</b><i></i></span></div>
+            <span class="dtap" id="dTap"></span>
+            <div class="dsheet">
+              <span class="dgrab"></span>
+              <div class="dsrow"><span class="dph"></span><span class="dsx"><span class="dby"><span class="dav sm">А</span><i></i></span><b>Кофейня у&nbsp;пруда</b><span class="dq">«Лучший раф в районе»</span></span></div>
+              <div class="dbtns"><i></i><span class="dgo"><span class="g1">Задание · +20</span><span class="g2">✓ Выполнено</span></span></div>
+            </div>
+            <span class="dflash"></span>
+          </div>
+          <span class="disland"></span>
+        </div>
+        <div class="drank" aria-hidden="true">
+          <p>Рейтинг компании</p>
+          <div class="dnums"><b>1</b><b>2</b><b>3</b></div>
+          <div class="drow" data-r="d"><span class="dav">Д</span><span class="nm">Даша</span><b>1 240</b></div>
+          <div class="drow" data-r="a"><span class="dav">А</span><span class="nm">Аня</span><b>970</b></div>
+          <div class="drow me" data-r="me"><span class="dav me">Т</span><span class="nm">Ты</span><b id="dPts2">960</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <section class="lwrap lhow" id="how">
     <h2>Как это работает</h2>
@@ -192,10 +244,12 @@
   // Запасной адрес, если jsdelivr недоступен
   if (!window.supabase) document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
 </script>
-<script src="config.js?v=20261030b"></script>
-<script src="ymap.js?v=20261030b"></script>
-<script src="app.js?v=20261030b"></script>
-<script src="walks.js?v=20261030b"></script>
-<script src="curated.js?v=20261030b"></script>
+<script src="config.js?v=20261110a"></script>
+<script src="tg.js?v=20261110a"></script>
+<script src="ymap.js?v=20261110a"></script>
+<script src="app.js?v=20261110a"></script>
+<script src="walks.js?v=20261110a"></script>
+<script src="curated.js?v=20261110a"></script>
+<script src="demo.js?v=20261110a"></script>
 </body>
 </html>

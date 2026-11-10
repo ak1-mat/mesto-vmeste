@@ -354,6 +354,7 @@ function renderWizard(fresh) {
       if (W.picks.size) {
         const r2 = await sb.from('plan_members').insert([...W.picks].map(u => ({ plan_id: id, user_id: u })));
         if (r2.error) throw r2.error;
+        window.TG?.notify('walk', { id });
       }
       closeModal();
       toast(W.picks.size ? `Прогулка создана — ${W.picks.size === 1 ? 'другу отправлено приглашение' : 'друзьям отправлены приглашения'}` : 'Прогулка создана', 3500);
@@ -492,7 +493,7 @@ function openWalk(id) {
   m.querySelectorAll('[data-inv]').forEach(b => b.onclick = async () => {
     const { error } = await sb.from('plan_members').insert({ plan_id: pl.id, user_id: b.dataset.inv });
     if (error) return toast(errText(error));
-    toast('Приглашение отправлено'); await refresh(); openWalk(pl.id);
+    toast('Приглашение отправлено'); window.TG?.notify('walk', { id: pl.id }); await refresh(); openWalk(pl.id);
   });
   m.querySelectorAll('[data-kick]').forEach(b => b.onclick = async () => {
     const { error } = await sb.from('plan_members').delete().match({ plan_id: pl.id, user_id: b.dataset.kick });

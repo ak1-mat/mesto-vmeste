@@ -24,6 +24,7 @@ if (!window.supabase || !window.L) {
   throw new Error('libs');
 }
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+window.TG?.init();
 
 const S = {
   user: null, me: null,
@@ -36,6 +37,7 @@ const S = {
 
 /* ---------- Утилиты ---------- */
 function toast(msg, ms = 2600) {
+  window.TG?.buzz(/\+\d|друзья|создан|добавлен/i.test(msg) ? 'ok' : 'tap');
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), ms);
 }
@@ -500,11 +502,12 @@ function openAddForm(latlng) {
     const btn = m.querySelector('#psave'); btn.disabled = true; btn.textContent = 'Сохраняю…';
     try {
       const photo_url = file ? await uploadPhoto(await compress(file)) : null;
-      const { error } = await sb.from('places').insert({
+      const { data: made, error } = await sb.from('places').insert({
         title, note: String(f.get('note')).trim() || null, link: link || null,
         category: cat, lat: latlng.lat, lng: latlng.lng, photo_url,
-      });
+      }).select('id');
       if (error) throw error;
+      if (made?.[0]) window.TG?.notify('place', { id: made[0].id });
       closeModal(); stopAdding();
       toast(`Место добавлено, +${PTS.place} баллов. Друзья увидят его как задание`, 3500);
       await refresh(false);
@@ -799,7 +802,7 @@ function openProfile() {
     if (error) return (m.querySelector('#prerr').textContent = errText(error));
     closeModal(); toast('Профиль сохранён'); refresh();
   };
-  m.querySelector('#logout').onclick = async () => { closeModal(); await sb.auth.signOut(); };
+  m.querySelector('#logout').onclick = async () => { closeModal(); window.TG?.signedOut(); await sb.auth.signOut(); };
 }
 $('#scoreBtn').onclick = openProfile;
 
@@ -949,11 +952,11 @@ function renderPanel() {
 }
 
 function renderFriends(body) {
-  const invite = `${location.origin}${location.pathname}?invite=${S.me.code}`;
+  const invite = window.TG?.on ? TG.link('f_' + S.me.code) : `${location.origin}${location.pathname}?invite=${S.me.code}`;
   body.innerHTML = `
     <div class="ptitle">Друзья</div>
     <div class="myid"><div><div class="k">Ваш код для друзей</div><div class="v">${esc(S.me.code)}</div></div>
-      <button class="sbtn sm" id="copyInv">${navigator.share ? 'Пригласить' : 'Скопировать ссылку'}</button></div>
+      <button class="sbtn sm" id="copyInv">${navigator.share || window.TG?.on ? 'Пригласить' : 'Скопировать ссылку'}</button></div>
     <form class="addrow" id="addf"><input class="input" name="code" maxlength="6" placeholder="Код друга, 6 символов" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Код друга"><button class="sbtn" type="submit">Добавить</button></form>
     <div class="err" id="ferr"></div>
     ${S.incoming.length ? sec('Хотят дружить', S.incoming.length) + S.incoming.map(r => `
@@ -968,6 +971,7 @@ function renderFriends(body) {
       <div class="fr">${avatar(prof(r.to_id))}<div><div class="nm">${esc(prof(r.to_id)?.name)}</div><div class="sub">заявка отправлена</div></div>
       <div class="acts"><button class="sbtn ghost sm" data-dec="${r.id}">Отменить</button></div></div>`).join('') : ''}`;
   body.querySelector('#copyInv').onclick = async () => {
+    if (window.TG?.share('f_' + S.me.code, 'Добавляйся ко мне в «Место вместе» — будем делиться любимыми местами')) return;
     if (navigator.share) {
       try { await navigator.share({ title: 'Место вместе', text: `Добавляйся ко мне в «Место вместе» — мой код ${S.me.code}`, url: invite }); return; }
       catch (e) { if (e?.name === 'AbortError') return; }
@@ -994,12 +998,13 @@ async function addFriend(code, errEl) {
   const { data, error } = await sb.rpc('send_friend_request', { p_code: code });
   if (error) { const t = errText(error); errEl ? (errEl.textContent = t) : toast(t); return; }
   toast(data === 'accepted' ? 'Теперь вы друзья! Их места появились на карте' : data === 'already' ? 'Вы уже друзья' : 'Заявка отправлена — ждём, когда друг её примет');
+  if (data !== 'already') window.TG?.notify('friend', { code });
   refresh();
 }
 async function respond(id, accept) {
   const { error } = await sb.rpc('respond_friend_request', { p_id: Number(id), p_accept: accept });
   if (error) return toast(errText(error));
-  if (accept) toast('Теперь вы друзья!');
+  if (accept) { toast('Теперь вы друзья!'); window.TG?.notify('friend_ok', { id: Number(id) }); }
   refresh();
 }
 
@@ -1030,6 +1035,7 @@ async function start(session) {
   store.set('mv_invite', '');
   if (location.search.includes('invite')) history.replaceState(null, '', location.pathname);
   if (inv && inv !== S.me.code) addFriend(inv);
+  window.TG?.started();
   if (typeof loadCurated === 'function' && !CUR.loaded) loadCurated();
   clearInterval(timer);
   timer = setInterval(() => { if (!document.hidden && !$('#modalRoot .overlay')) refresh(); }, 30000);
@@ -1040,10 +1046,12 @@ sb.auth.onAuthStateChange((event, session) => {
     if (S.user?.id !== session.user.id) setTimeout(() => start(session), 0); // вне колбэка, чтобы не блокировать auth
   } else if (!session) {
     if (typeof stopLive === 'function') stopLive();
-    S.user = null; clearInterval(timer); showAuth();
+    S.user = null; clearInterval(timer);
+    if (window.TG?.boot()) return;      // внутри Telegram входим без пароля
+    showAuth();
   }
 });
 // Вернулись на вкладку — сразу подтянуть новое от друзей
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.user && S.me && !$('#modalRoot .overlay')) refresh(); });
 // Если сеть долго молчит — не держим заставку вечно
-setTimeout(() => { if ($('#boot') && !S.user) showAuth(); }, 8000);
+setTimeout(() => { if ($('#boot') && !S.user && !window.TG?.busy) showAuth(); }, 8000);
