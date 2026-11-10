@@ -107,6 +107,13 @@ const OTP_LEN = 6;                 // длина кода в письме (Supab
 let authMode = 'login', otpEmail = '', resendAt = 0, resendTimer = null;
 function hideBoot() { $('#boot')?.remove(); }
 function setAuthBox(box) {
+  if (CFG.TG_ONLY && window.TG?.bot) {
+    // Вход только через Telegram: прячем почту и пароль
+    $('#otpBox').hidden = $('#passBox').hidden = true;
+    ['#otpErr', '#codeErr', '#authErr'].forEach(id => ($(id).textContent = ''));
+    if (!TG.on) TG.box('web');
+    return;
+  }
   if (!OTP_ON) box = 'pass';
   $('#toOtp').hidden = !OTP_ON;
   $('#otpBox').hidden = box !== 'otp';
@@ -129,7 +136,7 @@ function showAuth() {
   const inv = new URLSearchParams(location.search).get('invite');
   if (inv) store.set('mv_invite', inv.toUpperCase());   // переживёт переход по ссылке из письма
   if (inv || store.get('mv_invite')) {
-    $('#serverHint').textContent = 'Вас пригласил друг. Войдите или зарегистрируйтесь — и вы сразу станете друзьями.';
+    $('#serverHint').textContent = CFG.TG_ONLY ? 'Вас пригласил друг. Войдите через Telegram — и вы сразу станете друзьями.' : 'Вас пригласил друг. Войдите или зарегистрируйтесь — и вы сразу станете друзьями.';
   }
 }
 // Ссылки главной страницы: плавно листаем внутри экрана входа, адрес не меняем (в нём бывают данные входа из письма)
@@ -139,7 +146,7 @@ $('#auth').addEventListener('click', e => {
   const t = a.getAttribute('href') === '#auth' ? $('#auth') : $(a.getAttribute('href'));
   if (a.hasAttribute('data-go-login')) {
     $('#acard').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const inp = !$('#otpBox').hidden ? (!$('#otpEmailForm').hidden ? $('#otpEmail') : $('#otpCode')) : $('#nameField').hidden ? $('#authForm [name=email]') : $('#authForm [name=name]');
+    const inp = $('#otpBox').hidden && $('#passBox').hidden ? $('#tgGo') : !$('#otpBox').hidden ? (!$('#otpEmailForm').hidden ? $('#otpEmail') : $('#otpCode')) : $('#nameField').hidden ? $('#authForm [name=email]') : $('#authForm [name=name]');
     setTimeout(() => inp?.focus({ preventScroll: true }), 350);
   } else if (t === $('#auth')) $('#auth').scrollTo({ top: 0, behavior: 'smooth' });
   else t?.scrollIntoView({ behavior: 'smooth', block: 'start' });

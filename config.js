@@ -5,5 +5,7 @@ window.MESTO_CONFIG = {
   // Ключ Яндекс Карт (JavaScript API). Чтобы вернуть старую карту — удалите эту строку.
   YMAPS_KEY: '3e82ef19-0c95-49b6-8a3c-759fd979f59e',
   // Имя бота в Telegram без «@» (например 'mesto_vmeste_bot'). Пока пусто — Telegram выключен.
-  TG_BOT: 'mestovmeste_bot'
+  TG_BOT: 'mestovmeste_bot',
+  // Вход только через Telegram (почта и пароль скрыты). Вернуть вход по паролю: false
+  TG_ONLY: true
 };

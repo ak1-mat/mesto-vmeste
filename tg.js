@@ -127,17 +127,21 @@
       if (btn) { btn.disabled = false; btn.textContent = TG.goLabel(); }
       if (fail) { showAuth(); TG.box(TG._mode || 'retry'); const e2 = $('#tgErr'); if (e2) e2.textContent = fail; }
     },
-    goLabel() { return TG._mode === 'new' ? (TG.name ? `Продолжить как ${TG.name}` : 'Продолжить с Telegram') : 'Войти через Telegram'; },
+    only: !!CFG.TG_ONLY,
+    goLabel() { return TG._mode === 'web' ? 'Войти через Telegram' : TG._mode === 'new' ? (TG.name ? `Продолжить как ${TG.name}` : 'Продолжить с Telegram') : 'Войти через Telegram'; },
     // Блок Telegram в карточке входа: 'new' — первый запуск, 'out' — после выхода, 'retry' — после ошибки
     box(mode) {
       const b = $('#tgBox'); if (!b) return;
       TG._mode = mode;
       b.hidden = false;
       $('#tgGo').textContent = TG.goLabel();
-      $('#tgLead').textContent = mode === 'new' ? 'Вход без пароля — аккаунт создастся сам, имя возьмём из Telegram.' : 'Вход без пароля, в одно нажатие.';
-      $('#tgOr').textContent = mode === 'new' ? 'Уже пользовались сайтом? Войдите с почтой и паролем — аккаунт привяжется к Telegram, и дальше вход будет сам.' : 'Или войдите с почтой и паролем';
+      $('#tgLead').textContent = mode === 'web'
+        ? 'Вход — через нашего бота в Telegram: без пароля и почты. Откройте бота и нажмите «Открыть карту».'
+        : mode === 'new' ? 'Вход без пароля — аккаунт создастся сам, имя возьмём из Telegram.' : 'Вход без пароля, в одно нажатие.';
+      $('#tgOr').textContent = TG.only ? '' : mode === 'new' ? 'Уже пользовались сайтом? Войдите с почтой и паролем — аккаунт привяжется к Telegram, и дальше вход будет сам.' : 'Или войдите с почтой и паролем';
+      $('#tgOr').hidden = TG.only;
       $('#authTitle').textContent = 'Место вместе';
-      $('#tgGo').onclick = () => TG.login(mode === 'new');
+      $('#tgGo').onclick = mode === 'web' ? () => { location.href = TG.botLink(); } : () => TG.login(mode === 'new');
     },
     signedOut() { if (TG.on) ss.set('mv_tg_out', '1'); },
 
@@ -184,7 +188,13 @@
     },
 
     /* Поделиться. Возвращает true, если ссылка ушла через Telegram. */
-    link(param) { return BOT ? `https://t.me/${BOT}?startapp=${param}` : ''; },
+    link(param) { return BOT ? `https://t.me/${BOT}?start=${param}` : ''; },
+    // Ссылка на бота с обычного сайта; приглашение друга (?invite=КОД) не теряется
+    botLink() {
+      let inv = '';
+      try { inv = (new URLSearchParams(location.search).get('invite') || store.get('mv_invite') || '').toUpperCase(); } catch { /* нет */ }
+      return /^[A-Z0-9]{6}$/.test(inv) ? TG.link('f_' + inv) : `https://t.me/${BOT}`;
+    },
     share(param, text) {
       const w = wa();
       if (!TG.on || !BOT) return false;
