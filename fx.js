@@ -154,6 +154,47 @@
     setTimeout(() => l.remove(), 600);
   };
 
+  /* ---------- 6. Рабочий экран: вкладки, баллы, праздник ---------- */
+  // Содержимое вкладки выезжает, строки появляются по очереди
+  window.fxPanel = function (el) {
+    if (reduce || !el) return;
+    el.classList.remove('fxin'); void el.offsetWidth; el.classList.add('fxin');
+    clearTimeout(el._fx); el._fx = setTimeout(() => el.classList.remove('fxin'), 1200);
+  };
+  // Баллы «набегают», рядом всплывает +N
+  window.fxPoints = function (el, from, to) {
+    if (!el) return;
+    if (reduce) { el.textContent = to; return; }
+    const st = el.closest('.pts-sticker') || el, t0 = performance.now(), dur = 900;
+    const tick = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(from + (to - from) * e); if (k < 1) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    st.classList.remove('fxpop'); void st.offsetWidth; st.classList.add('fxpop');
+    const r = st.getBoundingClientRect(), b = document.createElement('span');
+    b.className = 'fxplus'; b.textContent = '+' + (to - from);
+    b.style.left = r.left + r.width / 2 + 'px'; b.style.top = r.bottom + 6 + 'px';
+    document.body.appendChild(b); setTimeout(() => b.remove(), 1400);
+  };
+  // Конфетти в цветах сервиса — за выполненное задание и новое место
+  window.fxConfetti = function (n = 46) {
+    if (reduce) return;
+    const box = document.createElement('div');
+    box.className = 'fxconf'; box.setAttribute('aria-hidden', 'true');
+    const cols = ['#5B3DF5', '#C8F542', '#8B74FF', '#15131F', '#FFFFFF'];
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('i');
+      s.style.left = rnd(5, 95) + '%';
+      s.style.background = cols[i % cols.length];
+      s.style.setProperty('--x', rnd(-80, 80).toFixed(0) + 'px');
+      s.style.setProperty('--r', rnd(-540, 540).toFixed(0) + 'deg');
+      s.style.animationDuration = rnd(1.4, 2.3).toFixed(2) + 's';
+      s.style.animationDelay = rnd(0, .35).toFixed(2) + 's';
+      if (i % 3 === 0) s.style.borderRadius = '50%';
+      box.appendChild(s);
+    }
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 3000);
+  };
+
   const go = () => { city(); letters(); heroCta(); flow(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();

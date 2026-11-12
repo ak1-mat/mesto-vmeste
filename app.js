@@ -321,20 +321,26 @@ const PIN_OK = '<svg class="pk" viewBox="0 0 24 24" aria-hidden="true"><path d="
 function pinHtml(cls, inner, flag = '') {
   return `<div class="pin ${cls}"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="${PIN_D}"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">${inner}</span>${flag}</div>`;
 }
-function pinIcon(p) {
+function pinIcon(p, d) {
   const c = CATS[p.category] || CATS.other;
+  // d — задержка «падения» метки (мс): метки сыплются на карту при первом показе и смене фильтра
+  const fx = d == null ? '' : ` fxd" style="--d:${d}ms`;
   const mine = p.author_id === S.user.id;
   const done = !mine && visitOf(p.id, S.user.id);
   const who = esc(((prof(p.author_id)?.name || '?').trim()[0] || '?').toUpperCase());
-  const html = mine ? pinHtml('mine', c.e)
-    : done ? pinHtml('done', PIN_OK)
-    : pinHtml('task', who, `<span class="flag">+${PTS.visit}</span>`);
+  const fresh = Date.now() - new Date(p.created_at) < 86400e3 ? ' fresh' : '';   // новое место друга — пульсирует сутки
+  const html = mine ? pinHtml('mine' + fx, c.e)
+    : done ? pinHtml('done' + fx, PIN_OK)
+    : pinHtml('task' + fresh + fx, who, `<span class="flag">+${PTS.visit}</span>`);
   return L.divIcon({ className: '', iconSize: [40, 53], iconAnchor: [20, 52], html });
 }
-function renderMap() {
+function renderMap(animate) {
   layer.clearLayers();
+  const fx = (animate || !renderMap.done) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  renderMap.done = true;
+  let i = 0;
   for (const p of filteredPlaces()) {
-    L.marker([p.lat, p.lng], { icon: pinIcon(p), title: p.title, zIndexOffset: 800 })
+    L.marker([p.lat, p.lng], { icon: pinIcon(p, fx && i < 60 ? (i++) * 24 : null), title: p.title, zIndexOffset: 800 })
       .on('click', () => openPlace(p.id)).addTo(layer);
   }
 }
@@ -346,7 +352,7 @@ function filteredPlaces() {
 function renderFilters() {
   const opts = [['all', 'Все'], ['tasks', 'Задания'], ['mine', 'Мои'], ...Object.entries(CATS).filter(([k]) => S.places.some(p => p.category === k)).map(([k, c]) => [k, c.e + ' ' + c.n])];
   $('#filters').innerHTML = opts.map(([k, n]) => `<button class="chip" data-f="${k}" aria-pressed="${S.filter === k}">${esc(n)}</button>`).join('');
-  $('#filters').querySelectorAll('.chip').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(); });
+  $('#filters').querySelectorAll('.chip').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(true); });
   layersSummary();
 }
 
@@ -381,7 +387,7 @@ function openLayers() {
       <button type="button" class="cta" id="lyDone">Показать на карте</button>
     </div>`);
   const again = () => { const top = $('.modal')?.scrollTop || 0; openLayers(); const md = $('.modal'); if (md) md.scrollTop = top; };
-  m.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(); again(); });
+  m.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(true); again(); });
   m.querySelector('#lyCur')?.addEventListener('click', () => { CUR.on = !CUR.on; store.set('mv_cur_on', CUR.on ? '1' : '0'); renderCuratedControl(); renderCuratedLayer(); layersSummary(); again(); });
   m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
     const k = b.dataset.c;
@@ -517,6 +523,7 @@ function openAddForm(latlng) {
       if (made?.[0]) window.TG?.notify('place', { id: made[0].id });
       closeModal(); stopAdding();
       toast(`Место добавлено, +${PTS.place} баллов. Друзья увидят его как задание`, 3500);
+      window.fxConfetti?.(28);
       await refresh(false);
     } catch (ex) { errEl.textContent = errText(ex); btn.disabled = false; btn.textContent = `Сохранить место (+${PTS.place})`; }
   };
@@ -742,6 +749,7 @@ async function openCamera(p) {
       stopCamera();
       $('#modalRoot .overlay')._onClose = null; closeModal();
       toast(`Задание выполнено! +${PTS.visit} баллов 🎉`, 4000);
+      window.fxConfetti?.();
       await refresh(false); openPlace(p.id);
     } catch (ex) { cerr.textContent = errText(ex); btn.disabled = false; btn.textContent = `Отправить · +${PTS.visit}`; }
   }
@@ -824,7 +832,7 @@ function setTab(tab) {
   document.body.dataset.view = tab;
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.tab === tab));
   if (tab === 'map') { setTimeout(() => map?.invalidateSize(), 30); }
-  else { renderPanel(); $('#pbody').scrollTop = 0; }
+  else { renderPanel(); $('#pbody').scrollTop = 0; window.fxPanel?.($('#pbody')); }
 }
 function showOnMap(lat, lng, zoom = 16) {
   if (isMobile()) setTab('map');
@@ -835,7 +843,10 @@ mobileMQ.addEventListener?.('change', () => { if (S.tab === 'map' && !isMobile()
 
 function renderHeader() {
   $('#meAv').outerHTML = avatar(S.me).replace('class="av', 'id="meAv" class="av');
-  $('#mePts').textContent = S.me.points;
+  const was = renderHeader.pts;
+  renderHeader.pts = S.me.points;
+  if (window.fxPoints && was != null && S.me.points > was) fxPoints($('#mePts'), was, S.me.points);
+  else $('#mePts').textContent = S.me.points;
   const tasks = S.places.filter(isTask).length;
   $('#cTasks').hidden = !tasks; $('#cTasks').textContent = tasks;
   $('#cReq').hidden = !S.incoming.length; $('#cReq').textContent = S.incoming.length;
