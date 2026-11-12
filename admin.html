@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Пользователи — Место вместе</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@600;700&display=swap">
+<style>
+:root{--paper:#F2F1F7;--surface:#fff;--sunk:#F2F1F7;--ink:#15131F;--muted:#5E5B6E;--line:#E3E1EC;--route:#5B3DF5;--route-ink:#fff;--route-soft:#ECE8FF;--mark:#C8F542;--warn:#C93A27;--f-d:'Unbounded','Manrope',system-ui,sans-serif;--f-b:'Manrope',system-ui,sans-serif;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--paper:#0F0E15;--surface:#1A1824;--sunk:#24212F;--ink:#F2F1F7;--muted:#ABA8BA;--line:#2F2C3B;--route:#8B74FF;--route-ink:#15131F;--route-soft:#2A2350;--warn:#FF7A66;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.5 var(--f-b);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+a{color:var(--route);font-weight:600;text-decoration:none}a:hover{text-decoration:underline}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px}
+h1{font:700 22px/1.2 var(--f-d);margin:0}
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+.top .sp{flex:1}
+.btn{border:0;border-radius:999px;padding:10px 18px;font:700 14px var(--f-b);cursor:pointer;background:var(--route);color:var(--route-ink)}
+.btn.ghost{background:var(--sunk);color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.6;cursor:default}
+input[type=search],input[type=password]{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:10px 16px;font:500 14px var(--f-b);min-width:240px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:22px}
+.login{max-width:380px;margin:12vh auto 0;padding:28px;display:grid;gap:14px}
+.login p{margin:0;color:var(--muted)}
+.err{color:var(--warn);font-weight:600;min-height:1.2em}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.stat{padding:16px 18px}
+.stat b{display:block;font:700 26px/1.1 var(--f-d)}
+.stat span{color:var(--muted);font-size:13px}
+.stat.lime{background:var(--mark);color:#15131F;border-color:transparent}.stat.lime span{color:#15131F;opacity:.75}
+.tablebox{overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:11px 14px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--surface);font-weight:700;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;user-select:none}
+th[data-dir=asc]::after{content:' ↑'}th[data-dir=desc]::after{content:' ↓'}
+tbody tr:hover{background:var(--route-soft)}
+tbody tr:last-child td{border-bottom:0}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.who{display:flex;align-items:center;gap:10px}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;flex:none;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.code{font-family:ui-monospace,Menlo,monospace;background:var(--sunk);padding:2px 8px;border-radius:8px}
+.mut{color:var(--muted)}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.foot{margin-top:10px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <form class="card login" id="login">
+    <h1>Админка</h1>
+    <p>Зарегистрированные пользователи «Место вместе»</p>
+    <input type="password" id="key" placeholder="Пароль администратора" autocomplete="current-password" required>
+    <button class="btn" id="go">Войти</button>
+    <div class="err" id="err"></div>
+  </form>
+
+  <div id="main" hidden>
+    <div class="top">
+      <h1>Пользователи</h1>
+      <span class="sp"></span>
+      <input type="search" id="q" placeholder="Поиск: имя, @ник, код">
+      <button class="btn ghost" id="reload">Обновить</button>
+      <button class="btn ghost" id="csv">Скачать CSV</button>
+      <button class="btn ghost" id="out">Выйти</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="card tablebox">
+      <table>
+        <thead><tr>
+          <th data-k="n">#</th>
+          <th data-k="name">Пользователь</th>
+          <th data-k="tg">Telegram</th>
+          <th data-k="code">Код</th>
+          <th data-k="points">Баллы</th>
+          <th data-k="places">Места</th>
+          <th data-k="visits">Визиты</th>
+          <th data-k="reg" data-dir="desc">Регистрация</th>
+          <th data-k="last">Последний вход</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="foot" id="foot"></div>
+  </div>
+
+</div>
+<script src="config.js"></script>
+<script>
+'use strict';
+const CFG = window.MESTO_CONFIG || {};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ss = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch {} } };
+let users = [], sortK = 'reg', sortDir = 'desc';
+
+// Вызов SQL-функции admin_users через REST Supabase
+async function load(key) {
+  const r = await fetch(CFG.SUPABASE_URL + '/rest/v1/rpc/admin_users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: CFG.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + CFG.SUPABASE_ANON_KEY },
+    body: JSON.stringify({ p_key: key })
+  });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) {
+    const m = (data && (data.message || data.hint)) || r.statusText;
+    if (/wrong admin key/.test(m)) throw new Error('Неверный пароль');
+    if (/admin_users|function/i.test(m)) throw new Error('Функция admin_users не найдена — запустите admin.sql в Supabase');
+    throw new Error(m);
+  }
+  return (data || []).map(norm);
+}
+
+// Приводим запись к общему виду: Telegram-ник/ID ищем в метаданных и почте
+function norm(u) {
+  const m = u.meta || {};
+  const tgUser = m.username || m.tg_username || m.telegram_username || '';
+  const tgId = m.tg_id || m.telegram_id || (String(u.email || '').match(/^tg_?(\d+)@/i) || [])[1] || '';
+  return {
+    id: u.id, name: u.name || m.first_name || m.name || '(без имени)',
+    avatar: u.avatar || '', color: u.color || '#5B3DF5',
+    tg: tgUser ? '@' + tgUser : (tgId ? 'id ' + tgId : ''),
+    tgLink: tgUser ? 'https://t.me/' + tgUser : (tgId ? 'tg://user?id=' + tgId : ''),
+    viaTg: !!(tgUser || tgId),
+    email: u.email || '', code: u.code || '', points: +u.points || 0,
+    places: +u.places_count || 0, visits: +u.visits_count || 0,
+    reg: u.registered_at || u.created_at || '', last: u.last_sign_in_at || ''
+  };
+}
+
+const fmt = d => d ? new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+const avatar = u => {
+  const isImg = /^(https?:|data:)/.test(u.avatar);
+  const inner = isImg ? `<img src="${esc(u.avatar)}" alt="">` : esc(u.avatar || (u.name.trim()[0] || '?').toUpperCase());
+  return `<span class="av" style="background:${esc(u.color)}">${inner}</span>`;
+};
+
+function view() {
+  const q = $('#q').value.trim().toLowerCase();
+  const list = users.filter(u => !q || [u.name, u.tg, u.code, u.email].join(' ').toLowerCase().includes(q));
+  const k = sortK === 'n' ? 'reg' : sortK, s = sortDir === 'asc' ? 1 : -1;
+  list.sort((a, b) => (typeof a[k] === 'number' ? a[k] - b[k] : String(a[k]).localeCompare(String(b[k]), 'ru')) * s);
+
+  $('#rows').innerHTML = list.length ? list.map((u, i) => `<tr>
+      <td class="mut">${i + 1}</td>
+      <td><div class="who">${avatar(u)}<b>${esc(u.name)}</b></div></td>
+      <td>${u.tgLink ? `<a href="${esc(u.tgLink)}" target="_blank" rel="noopener">${esc(u.tg)}</a>` : (u.tg ? esc(u.tg) : `<span class="mut">${esc(u.email || '—')}</span>`)}</td>
+      <td>${u.code ? `<span class="code">${esc(u.code)}</span>` : '<span class="mut">—</span>'}</td>
+      <td class="num"><b>${u.points}</b></td>
+      <td class="num">${u.places}</td>
+      <td class="num">${u.visits}</td>
+      <td>${fmt(u.reg)}</td>
+      <td class="mut">${fmt(u.last)}</td></tr>`).join('')
+    : `<tr><td colspan="9" class="empty">${users.length ? 'Никого не нашлось' : 'Пока никто не зарегистрировался'}</td></tr>`;
+
+  const week = Date.now() - 7 * 864e5, day = Date.now() - 864e5;
+  const n7 = users.filter(u => new Date(u.reg) > week).length;
+  const act = users.filter(u => u.last && new Date(u.last) > day).length;
+  $('#stats').innerHTML = `
+    <div class="card stat lime"><b>${users.length}</b><span>всего пользователей</span></div>
+    <div class="card stat"><b>${n7}</b><span>новых за 7 дней</span></div>
+    <div class="card stat"><b>${act}</b><span>заходили за сутки</span></div>
+    <div class="card stat"><b>${users.reduce((s, u) => s + u.places, 0)}</b><span>мест добавлено</span></div>`;
+  $('#foot').textContent = (q ? `Показано ${list.length} из ${users.length}. ` : '') + 'Обновлено ' + new Date().toLocaleTimeString('ru-RU');
+  document.querySelectorAll('th').forEach(th => th.dataset.k === sortK ? th.dataset.dir = sortDir : th.removeAttribute('data-dir'));
+}
+
+async function enter(key) {
+  const btn = $('#go'); btn.disabled = true; btn.textContent = 'Проверяю…'; $('#err').textContent = '';
+  try {
+    users = await load(key);
+    ss.set('mv_admin', key);
+    $('#login').hidden = true; $('#main').hidden = false; view();
+  } catch (e) {
+    ss.set('mv_admin', null);
+    $('#login').hidden = false; $('#main').hidden = true;
+    $('#err').textContent = e.message || 'Ошибка сети';
+  } finally { btn.disabled = false; btn.textContent = 'Войти'; }
+}
+
+$('#login').onsubmit = e => { e.preventDefault(); enter($('#key').value); };
+$('#q').oninput = view;
+$('#reload').onclick = () => enter(ss.get('mv_admin'));
+$('#out').onclick = () => { ss.set('mv_admin', null); users = []; $('#key').value = ''; $('#main').hidden = true; $('#login').hidden = false; };
+document.querySelectorAll('th').forEach(th => th.onclick = () => {
+  const k = th.dataset.k;
+  sortDir = sortK === k && sortDir === 'desc' ? 'asc' : 'desc'; sortK = k; view();
+});
+$('#csv').onclick = () => {
+  const cols = [['Имя', 'name'], ['Telegram', 'tg'], ['Почта', 'email'], ['Код', 'code'], ['Баллы', 'points'], ['Места', 'places'], ['Визиты', 'visits'], ['Регистрация', 'reg'], ['Последний вход', 'last']];
+  const cell = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const csv = '﻿' + [cols.map(c => cell(c[0])).join(';'), ...users.map(u => cols.map(c => cell(c[1] === 'reg' || c[1] === 'last' ? fmt(u[c[1]]) : u[c[1]])).join(';'))].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'polzovateli-mesto-vmeste-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+const saved = ss.get('mv_admin');
+if (saved) enter(saved);
+</script>
+</body>
+</html>
