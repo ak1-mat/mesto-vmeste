@@ -328,8 +328,8 @@ function pinIcon(p, d) {
   const mine = p.author_id === S.user.id;
   const done = !mine && visitOf(p.id, S.user.id);
   const who = esc(((prof(p.author_id)?.name || '?').trim()[0] || '?').toUpperCase());
-  const fresh = Date.now() - new Date(p.created_at) < 86400e3 ? ' fresh' : '';   // новое место друга — пульсирует сутки
-  const html = mine ? pinHtml('mine' + fx, c.e)
+  const fresh = (Date.now() - new Date(p.created_at) < 86400e3 ? ' fresh' : '') + (p.source ? ' vid' : '');   // новое место друга — пульсирует сутки
+  const html = mine ? pinHtml('mine' + (p.source ? ' vid' : '') + fx, c.e)
     : done ? pinHtml('done' + fx, PIN_OK)
     : pinHtml('task' + fresh + fx, who, `<span class="flag">+${PTS.visit}</span>`);
   return L.divIcon({ className: '', iconSize: [40, 53], iconAnchor: [20, 52], html });
@@ -601,7 +601,7 @@ function openPlace(id) {
   const m = modal(`
     ${p.photo_url ? `<div class="herowrap" id="hero"><img class="hero" src="${esc(p.photo_url)}" alt="${esc(p.title)}"></div>` : ''}
     <div class="mb">
-      <div class="row"><span class="cat" style="background:${c.c}">${c.e} ${c.n}</span></div>
+      <div class="row"><span class="cat" style="background:${c.c}">${c.e} ${c.n}</span>${srcBadge(p)}</div>
       <h2>${esc(p.title)}</h2>
       <div class="by">${avatar(prof(p.author_id), 'sm')}<span>Советует <b>${esc(mine ? 'вы' : nameOf(p.author_id))}</b>, ${ago(p.created_at)}</span></div>
       ${p.note ? `<p class="note">${esc(p.note)}</p>` : ''}
@@ -609,7 +609,8 @@ function openPlace(id) {
         <button type="button" class="lbtn" id="onMap">🗺️ Показать на карте</button>
         ${typeof togglePick === 'function' && !mine ? `<button type="button" class="lbtn" id="toDay">${CUR.pick.has('f:' + p.id) ? '✓ В маршруте на день' : '🧭 В маршрут на день'}</button>` : ''}
         <a class="lbtn" href="${esc(yandex)}" target="_blank" rel="noopener noreferrer">🧭 Как добраться</a>
-        ${p.link ? `<a class="lbtn" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(p.link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32))}</a>` : ''}
+        ${p.link && SRC[p.source] ? `<a class="lbtn vid" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">▶️ Смотреть видео в ${SRC[p.source].n}</a>`
+          : p.link ? `<a class="lbtn" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">🔗 ${esc(p.link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32))}</a>` : ''}
       </div>
       <div class="reacts" aria-label="Реакции">${reacts}</div>
       ${action}
@@ -854,6 +855,9 @@ function renderHeader() {
   $('#cWalks').hidden = !wi; $('#cWalks').textContent = wi;
 }
 
+// Места, добавленные из видео в соцсетях (через бота)
+const SRC = { tiktok: { n: 'TikTok', c: '#111' }, instagram: { n: 'Instagram', c: '#C13584' }, youtube: { n: 'YouTube', c: '#E62117' }, vk: { n: 'VK', c: '#0077FF' } };
+const srcBadge = p => SRC[p.source] ? `<span class="srcb" style="--sc:${SRC[p.source].c}">🎬 из ${SRC[p.source].n}</span>` : '';
 function placeItem(p) {
   const c = CATS[p.category] || CATS.other;
   const done = visitOf(p.id, S.user.id);
@@ -861,7 +865,7 @@ function placeItem(p) {
   const mine = p.author_id === S.user.id;
   return `<button class="item" data-id="${p.id}">
     ${p.photo_url ? `<img class="thumb" src="${esc(p.photo_url)}" alt="" loading="lazy">` : `<span class="thumb">${c.e}</span>`}
-    <div><div class="t">${esc(p.title)}</div>
+    <div><div class="t">${esc(p.title)}${p.source ? ' <span class="srci" title="Из видео">🎬</span>' : ''}</div>
       <div class="s">${mine ? '' : avatar(prof(p.author_id), 'sm')}${mine ? c.e + ' ' + c.n : esc(nameOf(p.author_id))}${n ? `, ${n} ${plural(n, 'визит', 'визита', 'визитов')}` : ''}</div></div>
     ${mine ? '' : done ? '<span class="rew done">✓</span>' : `<span class="rew">+${PTS.visit}</span>`}
   </button>`;

@@ -1070,3 +1070,10 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
 @media (prefers-reduced-motion:reduce){
   .pin.fxd,.pin.fresh::before,.pin.newpin,.fxin>*,.fxin .item,.fxin .rk,.rk.me::after,.pts-sticker.fxpop,.toast:not([hidden]),.modal .hero img,.modal img.hero{animation:none!important}
 }
+
+/* Места из видео в соцсетях */
+.srcb{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:5px 10px;border-radius:999px;font:700 12.5px/1 'Manrope',sans-serif;color:#fff;background:var(--sc,#15131F)}
+.srci{font-size:.85em}
+.lbtn.vid{background:#15131F;color:#fff}
+@media (prefers-color-scheme:dark){.lbtn.vid{background:#fff;color:#15131F}}
+.pin.vid::after{content:'🎬';position:absolute;z-index:3;left:-9px;top:-6px;width:20px;height:20px;border-radius:50%;background:#15131F;border:2px solid #fff;font-size:10px;line-height:16px;text-align:center}
