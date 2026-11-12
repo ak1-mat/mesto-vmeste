@@ -617,6 +617,7 @@ function openPlace(id) {
   m.querySelector('#toDay')?.addEventListener('click', e => { const on = togglePick('f:' + p.id); e.target.textContent = on ? '✓ В маршруте на день' : '🧭 В маршрут на день'; toast(on ? 'Добавлено в маршрут на день' : 'Убрано из маршрута'); });
   m.querySelectorAll('.re').forEach(b => b.onclick = async () => {
     const on = b.getAttribute('aria-pressed') === 'true';
+    if (!on) { window.fxBurst?.(b, b.dataset.e); window.TG?.buzz('ok'); }
     b.disabled = true;
     const r = on
       ? await sb.from('reactions').delete().match({ place_id: p.id, user_id: S.user.id, emoji: b.dataset.e })
@@ -1035,8 +1036,8 @@ async function start(session) {
   setTab(isMobile() ? 'map' : S.tab === 'map' ? 'tasks' : S.tab);
   setTimeout(() => map.invalidateSize(), 50);
   store.set('mv_seen', '1');
-  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); geoAuto(); if (typeof startLive === 'function') startLive(); if (needsWelcome()) openWelcome(); }
-  catch (e) { hideBoot(); toast(errText(e), 5000); console.error(e); return; }
+  try { await loadAll(); hideBoot(); renderAll(); map.invalidateSize(); fitOnce(); window.fxMapReady?.(); geoAuto(); if (typeof startLive === 'function') startLive(); if (needsWelcome()) openWelcome(); }
+  catch (e) { hideBoot(); window.fxMapReady?.(); toast(errText(e), 5000); console.error(e); return; }
   // Приглашение по ссылке ?invite=КОД
   const inv = (new URLSearchParams(location.search).get('invite') || store.get('mv_invite') || '').toUpperCase();
   store.set('mv_invite', '');

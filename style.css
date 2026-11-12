@@ -881,3 +881,148 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
 .tg .lhero{padding-top:4px;padding-bottom:24px;gap:18px}
 .tg .lhero h1{font-size:30px}
 .tg .lhero-c{padding-top:120px}
+
+/* ===================== Живые эффекты (fx.js) ===================== */
+/* Фон «город с высоты» */
+.lherobg{position:relative;overflow:hidden}
+.lherobg>.lhero{position:relative;z-index:1}
+.lcity{position:absolute;inset:0;z-index:0;pointer-events:none}
+.lcity-map{position:absolute;inset:-4%;width:108%;height:108%;animation:lcdrift 46s ease-in-out infinite alternate}
+.lc-blocks rect{fill:var(--paper)}
+.lc-roads path{fill:none;stroke:var(--line);stroke-width:18;stroke-linecap:round}
+.lc-river{fill:none;stroke:#DCD6FB;stroke-width:46;stroke-linecap:round}
+.lc-park{fill:#E5F3CF}
+@media (prefers-color-scheme:dark){.lc-river{stroke:#241F44}.lc-park{fill:#1E2A17}}
+.lcity-fade{position:absolute;inset:0;background:linear-gradient(90deg,var(--surface) 0,color-mix(in srgb,var(--surface) 82%,transparent) 30%,color-mix(in srgb,var(--surface) 25%,transparent) 62%,transparent 80%),linear-gradient(0deg,var(--surface),transparent 18%),linear-gradient(180deg,var(--surface),transparent 12%)}
+@media (max-width:700px){.lcity-fade{background:linear-gradient(0deg,var(--surface),transparent 14%),linear-gradient(180deg,var(--surface) 0,color-mix(in srgb,var(--surface) 88%,transparent) 48%,color-mix(in srgb,var(--surface) 30%,transparent) 62%)}}
+@keyframes lcdrift{to{transform:translate(-2.5%,-2%) scale(1.05)}}
+.lcp{position:absolute;width:30px;height:40px;margin:-40px 0 0 -15px;transform-origin:50% 100%;filter:drop-shadow(0 8px 10px rgba(21,19,31,.22));animation:lcpin 5.2s cubic-bezier(.2,.8,.2,1) forwards}
+.lcp>svg{width:100%;height:100%;display:block}
+.lcp.task path{fill:#5B3DF5}.lcp.task circle{fill:#4A2FE0}
+.lcp.mine path{fill:#fff}.lcp.mine circle{fill:#F2F1F7}
+.lcp.done path,.lcp.done circle{fill:#15131F}
+.lcp .e{position:absolute;left:0;right:0;top:6px;height:19px;display:grid;place-items:center;font:700 12px/1 var(--f-display);color:#fff}
+.lcp.mine .e{font-size:12px}
+.lcp .e svg{width:15px;height:15px;fill:none;stroke:#C8F542;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.lcp::after{content:'';position:absolute;left:50%;bottom:-3px;width:34px;height:12px;margin-left:-17px;border-radius:50%;border:2px solid #5B3DF5;opacity:0;animation:lcring 1.6s ease-out .25s 2}
+.lcp.still{animation:none;opacity:.9}.lcp.still::after{display:none}
+.lherobg .lhero-c{background:transparent}.lherobg .lmap{display:none}
+.lcn.l{left:auto;right:34px;border-radius:12px 12px 4px 12px}
+.lcn{position:absolute;left:34px;top:-2px;white-space:nowrap;background:var(--surface);color:var(--ink);font:700 12.5px/1 'Manrope',sans-serif;padding:8px 11px;border-radius:12px 12px 12px 4px;box-shadow:var(--sh-2);animation:lcnote 4.6s ease .35s both}
+@keyframes lcpin{0%{opacity:0;transform:translateY(-26px) scale(.5)}12%{opacity:1;transform:translateY(0) scale(1.1)}18%{transform:scale(1)}84%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.85)}}
+@keyframes lcring{0%{opacity:.7;transform:scale(.4)}100%{opacity:0;transform:scale(1.8)}}
+@keyframes lcnote{0%{opacity:0;transform:translateX(-6px) scale(.9)}10%,82%{opacity:1;transform:none}100%{opacity:0}}
+
+/* Заголовок собирается по буквам, акцент подчёркивается лаймом */
+.lfx .lw{display:inline-block;white-space:nowrap}
+.lfx .lch{display:inline-block;opacity:0;transform:translateY(.45em) rotate(8deg);filter:blur(8px);animation:lch .8s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(var(--i) * 22ms + 120ms)}
+@keyframes lch{to{opacity:1;transform:none;filter:none}}
+.lfx .lw,.lfx .lch{color:inherit}
+.lhero h1>span:not(.lw){background:linear-gradient(#C8F542,#C8F542) 0 92%/0 .2em no-repeat;-webkit-box-decoration-break:clone;box-decoration-break:clone;animation:lmark .8s cubic-bezier(.6,0,.2,1) forwards;animation-delay:calc(var(--n,30) * 22ms + 350ms)}
+@keyframes lmark{to{background-size:100% .2em}}
+.lhero-t>.lbadge,.lhero-t>p,.lhero-go{animation:lup .7s cubic-bezier(.2,.8,.2,1) both}
+.lhero-t>p{animation-delay:.55s}.lhero-go{animation-delay:.75s}
+@keyframes lup{from{opacity:0;transform:translateY(16px)}}
+
+/* Главная кнопка «Создать карту с друзьями» */
+.lhero-go{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap}
+.lhero-go>span{font-size:14px;color:var(--muted);font-weight:600}
+#heroGo{position:relative;overflow:hidden;box-shadow:0 12px 28px rgba(91,61,245,.35)}
+#heroGo svg{width:20px;height:20px;transition:transform .25s}
+#heroGo:hover svg{transform:translateX(4px)}
+#heroGo::after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);animation:lshine 4.5s ease-in-out 1.6s infinite}
+@keyframes lshine{0%,70%{left:-60%}100%{left:130%}}
+.tg .lhero-go{display:none}
+
+/* «Как это работает»: 4 шага с прокруткой */
+.lsub{margin:-28px 0 0;font-size:18px;line-height:1.5;color:var(--muted)}
+.lflow{list-style:none;margin:0;padding:30px 0 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;position:relative;--p:0}
+.lflow::before,.lflow::after{content:'';position:absolute;left:0;right:0;top:6px;height:5px;border-radius:3px;background:var(--line)}
+.lflow::after{background:linear-gradient(90deg,#5B3DF5,#8B74FF 70%,#C8F542);transform-origin:0 50%;transform:scaleX(var(--p));transition:transform .15s linear}
+.lflow li{background:#F2F1F7;color:#15131F;border-radius:28px;padding:16px 16px 26px;display:flex;flex-direction:column;gap:12px;opacity:0;transform:translateY(30px);transition:opacity .6s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+.lflow li:nth-child(4){background:#C8F542}
+.lflow li.in{opacity:1;transform:none}
+.lflow li .ln{margin:6px 6px 0}
+.lflow h3{font-family:var(--f-display);font-weight:600;font-size:21px;letter-spacing:-.02em;margin:0 6px}
+.lflow p{margin:0 6px;font-size:16px;line-height:1.55;color:#5E5B6E}
+.lflow li:nth-child(4) p{color:#15131F}
+.lfi{position:relative;height:150px;border-radius:20px;overflow:hidden;background:#fff}
+.lf-map{position:absolute;inset:0;background:linear-gradient(#ECEAF5 0 0) 0 64%/100% 12px no-repeat,linear-gradient(#ECEAF5 0 0) 34% 0/11px 100% no-repeat,linear-gradient(#E5F3CF 0 0) 82% 18%/56px 40px no-repeat,#F8F7FC}
+.lf-pin{position:absolute;left:58%;top:30px;width:36px;height:48px;transform-origin:50% 100%;filter:drop-shadow(0 8px 10px rgba(21,19,31,.25))}
+.lf-pin svg{width:100%;height:100%;display:block}.lf-pin path{fill:#5B3DF5}.lf-pin circle{fill:#fff}
+.lf-pin .e{position:absolute;left:0;right:0;top:8px;text-align:center;font-size:14px;line-height:20px}
+.lf-pin.drop circle{r:12px}
+.lf-lens{position:absolute;left:52%;top:22px;width:58px;height:58px;border-radius:50%;border:5px solid #15131F;background:rgba(255,255,255,.35)}
+.lf-lens::after{content:'';position:absolute;right:-17px;bottom:-11px;width:22px;height:7px;border-radius:4px;background:#15131F;transform:rotate(45deg)}
+.lf-chip{position:absolute;left:14px;bottom:14px;background:#C8F542;color:#15131F;font:700 13px/1 var(--f-display);padding:9px 12px;border-radius:999px}
+.lfi-3{background:#5B3DF5;display:grid;place-items:center}
+.lf-av{position:absolute;top:36px;width:50px;height:50px;border-radius:50%;display:grid;place-items:center;font:700 18px/1 var(--f-display);border:3px solid #5B3DF5}
+.lf-av.a1{left:calc(50% - 70px);background:#fff;color:#5B3DF5}.lf-av.a2{left:calc(50% - 25px);background:#C8F542;color:#15131F}.lf-av.a3{left:calc(50% + 20px);background:#15131F;color:#fff}
+.lf-bub{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);white-space:nowrap;background:#fff;color:#15131F;font:700 13.5px/1 'Manrope',sans-serif;padding:10px 14px;border-radius:14px 14px 14px 4px}
+.lfi-4{background:#fff;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:14px}
+.lf-msg{max-width:80%;font:700 14px/1.2 'Manrope',sans-serif;padding:10px 14px;border-radius:16px}
+.lf-msg.m1{align-self:flex-start;background:#F2F1F7;color:#15131F;border-bottom-left-radius:4px}
+.lf-msg.m2{align-self:flex-end;background:#5B3DF5;color:#fff;border-bottom-right-radius:4px}
+.lf-msg.m3{align-self:flex-end;background:#15131F;color:#C8F542;border-bottom-right-radius:4px}
+/* анимации шагов — запускаются, когда шаг появился на экране */
+.lflow li.in .lf-lens{animation:lflens 1.5s cubic-bezier(.5,0,.3,1) both}
+.lflow li.in .lfi-1 .lf-pin{animation:lfpop .55s cubic-bezier(.3,1.6,.5,1) 1.25s both}
+.lflow li.in .lf-pin.drop{animation:lfdrop .8s cubic-bezier(.3,1.5,.5,1) .3s both}
+.lflow li.in .lf-chip{animation:lfpop .45s cubic-bezier(.3,1.6,.5,1) 1.1s both}
+.lflow li.in .lf-av{animation:lfpop .45s cubic-bezier(.3,1.6,.5,1) both}
+.lflow li.in .lf-av.a2{animation-delay:.25s}.lflow li.in .lf-av.a3{animation-delay:.5s}
+.lflow li.in .lf-bub{animation:lfbub .5s cubic-bezier(.3,1.5,.5,1) 1s both}
+.lflow li.in .lf-msg{animation:lfmsg .45s cubic-bezier(.3,1.4,.5,1) both}
+.lflow li.in .lf-msg.m1{animation-delay:.2s}.lflow li.in .lf-msg.m2{animation-delay:.9s}.lflow li.in .lf-msg.m3{animation-delay:1.5s}
+@keyframes lflens{from{left:6%;top:72px}}
+@keyframes lfpop{from{opacity:0;transform:scale(.3)}}
+@keyframes lfdrop{from{opacity:0;transform:translateY(-90px)}}
+@keyframes lfbub{from{opacity:0;transform:translate(-50%,12px) scale(.8)}}
+@keyframes lfmsg{from{opacity:0;transform:translateY(14px) scale(.9)}}
+@media (max-width:980px){.lflow{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:620px){.lflow{grid-template-columns:1fr;padding-top:0}.lflow::before,.lflow::after{display:none}.lsub{margin-top:-18px;font-size:16px}}
+
+/* Загрузчик карты */
+.maploader{position:absolute;inset:0;z-index:600;display:grid;place-content:center;justify-items:center;gap:16px;background:var(--paper);transition:opacity .5s ease}
+.maploader.done{opacity:0;pointer-events:none}
+.maploader b{font-size:14.5px;color:var(--muted);font-weight:700}
+.ml-pins{display:flex;gap:10px;align-items:flex-end;height:46px}
+.ml-pins i{width:24px;height:32px;background:no-repeat center/contain;animation:mlhop 1s cubic-bezier(.4,0,.4,1) infinite}
+.ml-pins i:nth-child(1){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Cpath fill='%235B3DF5' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Ccircle cx='24' cy='23' r='9' fill='%23fff'/%3E%3C/svg%3E")}
+.ml-pins i:nth-child(2){animation-delay:.15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Cpath fill='%23C8F542' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Ccircle cx='24' cy='23' r='9' fill='%2315131F'/%3E%3C/svg%3E")}
+.ml-pins i:nth-child(3){animation-delay:.3s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Cpath fill='%2315131F' d='M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z'/%3E%3Ccircle cx='24' cy='23' r='9' fill='%23C8F542'/%3E%3C/svg%3E")}
+@media (prefers-color-scheme:dark){.ml-pins i:nth-child(3){filter:invert(1) hue-rotate(180deg)}}
+@keyframes mlhop{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px)}60%{transform:translateY(0) scaleY(.88)}}
+
+/* Кнопка «Добавить место» */
+.fab svg{transition:transform .3s cubic-bezier(.3,1.5,.5,1)}
+.fab::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;animation:fabring 1.8s ease-out 1.5s 3}
+@keyframes fabring{0%{box-shadow:0 0 0 0 rgba(91,61,245,.55)}100%{box-shadow:0 0 0 18px rgba(91,61,245,0)}}
+@media (hover:hover){.fab:hover{transform:translateY(-2px);filter:brightness(1.06)}.fab:hover svg{transform:rotate(90deg)}}
+.fab:active{transform:scale(.96)}
+
+/* Карточки мест в списках */
+.item{transition:background .15s,transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s}
+.item .thumb{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+@media (hover:hover){
+  .item:hover{background:var(--surface);transform:translateY(-2px);box-shadow:var(--sh-2)}
+  .item:hover .thumb{transform:scale(1.06) rotate(-2deg)}
+  .item:hover .rew:not(.done){animation:rewwig .5s ease}
+}
+.item:active{transform:scale(.985)}
+@keyframes rewwig{30%{transform:rotate(-8deg) scale(1.1)}60%{transform:rotate(6deg)}}
+
+/* Реакции: появляются по очереди, своя реакция взрывается эмодзи */
+.reacts .re{animation:rein .35s cubic-bezier(.3,1.5,.5,1) both}
+.reacts .re:nth-child(2){animation-delay:.04s}.reacts .re:nth-child(3){animation-delay:.08s}.reacts .re:nth-child(4){animation-delay:.12s}.reacts .re:nth-child(5){animation-delay:.16s}.reacts .re:nth-child(6){animation-delay:.2s}
+.reacts .re:active{transform:scale(.9)}
+@keyframes rein{from{opacity:0;transform:scale(.6)}}
+.fxb{position:fixed;z-index:4000;pointer-events:none;width:0;height:0}
+.fxb span{position:absolute;left:0;top:0;font-size:22px;line-height:1;transform:translate(-50%,-50%);animation:fxb .95s cubic-bezier(.2,.7,.3,1) both}
+@keyframes fxb{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r)) scale(.7)}}
+
+@media (prefers-reduced-motion:reduce){
+  .lcity-map,.lcp,.lcp::after,.lcn,.lfx .lch,.lhero h1>span:not(.lw),.lhero-t>*,.lhero-go,#heroGo::after,.lflow li *,.ml-pins i,.fab::after,.reacts .re,.item .rew{animation:none!important}
+  .lhero h1>span:not(.lw){background-size:100% .2em}
+  .lflow li{transition:none}.lflow::after{transition:none}
+}
