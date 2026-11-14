@@ -599,7 +599,7 @@ function openPlace(id) {
   const yandex = `https://yandex.ru/maps/?pt=${p.lng},${p.lat}&z=17&l=map`;
 
   const m = modal(`
-    ${p.photo_url ? `<div class="herowrap" id="hero"><img class="hero" src="${esc(p.photo_url)}" alt="${esc(p.title)}"></div>` : ''}
+    ${videoHero(p) || (p.photo_url ? `<div class="herowrap" id="hero"><img class="hero" src="${esc(p.photo_url)}" alt="${esc(p.title)}"></div>` : '')}
     <div class="mb">
       <div class="row"><span class="cat" style="background:${c.c}">${c.e} ${c.n}</span>${srcBadge(p)}</div>
       <h2>${esc(p.title)}</h2>
@@ -857,6 +857,27 @@ function renderHeader() {
 
 // Места, добавленные из видео в соцсетях (через бота)
 const SRC = { tiktok: { n: 'TikTok', c: '#111' }, instagram: { n: 'Instagram', c: '#C13584' }, youtube: { n: 'YouTube', c: '#E62117' }, vk: { n: 'VK', c: '#0077FF' } };
+// Встроенный плеер соцсети: ролик крутится прямо в карточке места (без звука, по кругу)
+function videoEmbed(p) {
+  const l = String(p.link || '');
+  let m;
+  if (p.source === 'tiktok' && (m = l.match(/\/(?:video|photo)\/(\d{8,})/)))
+    return `https://www.tiktok.com/player/v1/${m[1]}?autoplay=1&muted=1&loop=1&controls=0&progress_bar=0&play_button=0&volume_control=0&fullscreen_button=0&timestamp=0&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=0`;
+  if (p.source === 'youtube' && (m = l.match(/(?:shorts\/|youtu\.be\/|[?&]v=)([\w-]{11})/)))
+    return `https://www.youtube-nocookie.com/embed/${m[1]}?autoplay=1&mute=1&loop=1&playlist=${m[1]}&controls=0&playsinline=1&modestbranding=1&rel=0`;
+  if (p.source === 'instagram' && (m = l.match(/instagram\.com\/(?:reels?|p|tv)\/([\w-]+)/)))
+    return `https://www.instagram.com/reel/${m[1]}/embed/`;
+  return '';
+}
+function videoHero(p) {
+  const src = videoEmbed(p);
+  if (!src) return '';
+  const poster = p.photo_url ? ` style="--poster:url('${esc(p.photo_url)}')"` : '';
+  return `<div class="herovid${p.photo_url ? ' hasp' : ''}"${poster}>
+    <iframe src="${esc(src)}" title="Видео: ${esc(p.title)}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <span class="hvtag">🎬 ${SRC[p.source].n}</span>
+  </div>`;
+}
 const srcBadge = p => SRC[p.source] ? `<span class="srcb" style="--sc:${SRC[p.source].c}">🎬 из ${SRC[p.source].n}</span>` : '';
 function placeItem(p) {
   const c = CATS[p.category] || CATS.other;

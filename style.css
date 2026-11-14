@@ -1077,3 +1077,10 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
 .lbtn.vid{background:#15131F;color:#fff}
 @media (prefers-color-scheme:dark){.lbtn.vid{background:#fff;color:#15131F}}
 .pin.vid::after{content:'🎬';position:absolute;z-index:3;left:-9px;top:-6px;width:20px;height:20px;border-radius:50%;background:#15131F;border:2px solid #fff;font-size:10px;line-height:16px;text-align:center}
+
+/* Видео из соцсети прямо в карточке места */
+.herovid{position:relative;height:min(58vh,520px);background:#0F1115;overflow:hidden;display:flex;justify-content:center}
+.herovid.hasp::before{content:'';position:absolute;inset:-20px;background:var(--poster) center/cover;filter:blur(18px) brightness(.55);transform:scale(1.1)}
+.herovid iframe{position:relative;z-index:1;height:100%;aspect-ratio:9/16;max-width:100%;border:0;background:transparent}
+.hvtag{position:absolute;z-index:2;left:12px;bottom:12px;padding:6px 10px;border-radius:999px;background:rgba(21,19,31,.78);color:#fff;font:700 12.5px/1 'Manrope',sans-serif;pointer-events:none}
+.herovid+.mb h2{padding-right:0}
