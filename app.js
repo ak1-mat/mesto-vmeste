@@ -301,7 +301,7 @@ function initMap() {
   }).addTo(map);
   map.zoomControl.setPosition('bottomleft');
   layer = L.layerGroup().addTo(map);
-  map.on('click', e => { if (S.adding) openAddForm(e.latlng); });
+  map.on('click', e => { if (S.adding) openAddForm(e.latlng); else closePeek(); });
 }
 /* Первый показ: охватить все места; если мест нет — центр на пользователе */
 let fitted = false;
@@ -318,8 +318,8 @@ function fitOnce() {
 // уже выполнено — «ночь» с лаймовой галочкой, своё — белая с эмодзи категории.
 const PIN_D = 'M24 0C10.7 0 0 10.7 0 24c0 16 24 40 24 40s24-24 24-40C48 10.7 37.3 0 24 0z';
 const PIN_OK = '<svg class="pk" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"/></svg>';
-function pinHtml(cls, inner, flag = '') {
-  return `<div class="pin ${cls}"><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="${PIN_D}"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e">${inner}</span>${flag}</div>`;
+function pinHtml(cls, inner, flag = '', id = '', eStyle = '') {
+  return `<div class="pin ${cls}"${id ? ` data-pid="${id}"` : ''}><svg class="pg" viewBox="0 0 48 64" aria-hidden="true"><path d="${PIN_D}"/><circle cx="24" cy="23" r="15.5"/></svg><span class="e"${eStyle}>${inner}</span>${flag}</div>`;
 }
 function pinIcon(p, d) {
   const c = CATS[p.category] || CATS.other;
@@ -327,11 +327,15 @@ function pinIcon(p, d) {
   const fx = d == null ? '' : ` fxd" style="--d:${d}ms`;
   const mine = p.author_id === S.user.id;
   const done = !mine && visitOf(p.id, S.user.id);
-  const who = esc(((prof(p.author_id)?.name || '?').trim()[0] || '?').toUpperCase());
+  // в метке задания — «аватар» друга: его эмодзи или первая буква на его цвете, чтобы сразу видно, кто советует
+  const au = prof(p.author_id);
+  const who = esc(au?.avatar || ((au?.name || '?').trim()[0] || '?').toUpperCase());
+  const face = au?.color ? ` style="--fc:${esc(au.color)}"` : '';
   const fresh = (Date.now() - new Date(p.created_at) < 86400e3 ? ' fresh' : '') + (p.source ? ' vid' : '');   // новое место друга — пульсирует сутки
-  const html = mine ? pinHtml('mine' + (p.source ? ' vid' : '') + fx, c.e)
-    : done ? pinHtml('done' + fx, PIN_OK)
-    : pinHtml('task' + fresh + fx, who, `<span class="flag">+${PTS.visit}</span>`);
+  const sel = S.peek === p.id ? ' sel' : '';
+  const html = mine ? pinHtml('mine' + (p.source ? ' vid' : '') + sel + fx, c.e, '', p.id)
+    : done ? pinHtml('done' + sel + fx, PIN_OK, '', p.id)
+    : pinHtml('task face' + (au?.avatar ? ' emo' : '') + fresh + sel + fx, who, `<span class="flag">+${PTS.visit}</span>`, p.id, face);
   return L.divIcon({ className: '', iconSize: [40, 53], iconAnchor: [20, 52], html });
 }
 function renderMap(animate) {
@@ -340,9 +344,62 @@ function renderMap(animate) {
   renderMap.done = true;
   let i = 0;
   for (const p of filteredPlaces()) {
-    L.marker([p.lat, p.lng], { icon: pinIcon(p, fx && i < 60 ? (i++) * 24 : null), title: p.title, zIndexOffset: 800 })
-      .on('click', () => openPlace(p.id)).addTo(layer);
+    L.marker([p.lat, p.lng], { icon: pinIcon(p, fx && i < 60 ? (i++) * 24 : null), title: p.title, zIndexOffset: S.peek === p.id ? 1500 : 800 })
+      .on('click', () => openPeek(p.id)).addTo(layer);
   }
+  if (S.peek != null) { if (S.places.some(x => x.id === S.peek)) renderPeek(); else closePeek(); }
+}
+
+/* ---------- Нижняя карточка места поверх карты ----------
+   Нажали на метку — снизу выезжает короткая карточка: фото, кто советует, реакции и главные кнопки.
+   «Подробнее» открывает полное окно места. Закрыть — крестик, Esc или нажатие на пустую карту. */
+function openPeek(id) {
+  if (S.adding) return;
+  const prev = S.peek; S.peek = id;
+  markSel(prev, false); markSel(id, true);
+  renderPeek();
+  window.TG?.buzz?.('tap');
+}
+function markSel(id, on) {
+  if (id == null) return;
+  document.querySelectorAll(`#map .pin[data-pid="${id}"]`).forEach(el => el.classList.toggle('sel', on));
+}
+function closePeek() {
+  if (S.peek == null) return;
+  markSel(S.peek, false); S.peek = null;
+  const el = $('#peek'); if (el) { el.hidden = true; el.innerHTML = ''; }
+  $('#mapwrapEl')?.classList.remove('peeking');
+}
+function renderPeek() {
+  const p = S.places.find(x => x.id === S.peek), el = $('#peek');
+  if (!p || !el) return;
+  const c = CATS[p.category] || CATS.other;
+  const mine = p.author_id === S.user.id, done = !mine && visitOf(p.id, S.user.id);
+  const reacts = EMOJIS.map(e => [e, S.reactions.filter(r => r.place_id === p.id && r.emoji === e).length]).filter(x => x[1]);
+  const seen = S.visits.filter(v => v.place_id === p.id).length;
+  const thumb = p.photo_url ? `<img src="${esc(p.photo_url)}" alt="" loading="lazy">` : `<span>${c.e}</span>`;
+  const main = mine ? `<button class="pk-go" data-a="more">Открыть место</button>`
+    : done ? `<button class="pk-go done" data-a="more">✓ Задание выполнено</button>`
+    : `<button class="pk-go" data-a="task">📷 Задание <b>+${PTS.visit}</b></button>`;
+  el.innerHTML = `
+    <span class="pk-grab" aria-hidden="true"></span>
+    <button class="pk-x" type="button" aria-label="Закрыть">×</button>
+    <div class="pk-row" data-a="more">
+      <div class="pk-ph" style="--c:${c.c}">${thumb}${p.source ? '<i class="pk-vid" aria-hidden="true">▶</i>' : ''}</div>
+      <div class="pk-t">
+        <span class="pk-cat" style="--c:${c.c}">${c.e} ${c.n}</span>
+        <b>${esc(p.title)}</b>
+        <span class="pk-by">${avatar(prof(p.author_id), 'sm')}<span>${mine ? 'Ваше место' : 'Советует ' + esc(nameOf(p.author_id))} · ${ago(p.created_at)}</span></span>
+        ${reacts.length || seen ? `<span class="pk-meta">${reacts.map(([e, n]) => `<i>${e} ${n}</i>`).join('')}${seen ? `<i>📷 ${seen}</i>` : ''}</span>` : ''}
+      </div>
+    </div>
+    ${p.note ? `<p class="pk-note">${esc(p.note)}</p>` : ''}
+    <div class="pk-btns">${main}<button class="pk-b" data-a="more">Подробнее</button><a class="pk-b" href="https://yandex.ru/maps/?rtext=~${p.lat},${p.lng}&rtt=pd" target="_blank" rel="noopener noreferrer" aria-label="Как добраться">🧭</a></div>`;
+  el.hidden = false;
+  $('#mapwrapEl')?.classList.add('peeking');
+  el.querySelector('.pk-x').onclick = closePeek;
+  el.querySelectorAll('[data-a="more"]').forEach(b => b.onclick = () => openPlace(p.id));
+  el.querySelector('[data-a="task"]')?.addEventListener('click', () => openCamera(p));
 }
 function filteredPlaces() {
   const f = S.filter;
@@ -403,7 +460,7 @@ $('#layersBtn').onclick = openLayers;
 /* Добавление места */
 function startAdding() {
   if (isMobile() && S.tab !== 'map') setTab('map');
-  closeModal();
+  closeModal(); closePeek();
   S.adding = true; $('#addbar').hidden = false; $('#fab').hidden = true; $('#locBtn').hidden = true;
   $('#map').classList.add('adding');
 }
@@ -568,7 +625,7 @@ function closeModal() {
   o.remove();
   o._onClose?.();
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('.lightbox')) $('.lightbox').remove(); else closeModal(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('.lightbox')) $('.lightbox').remove(); else if ($('#modalRoot .overlay')) closeModal(); else closePeek(); } });
 function lightbox(src) {
   const d = document.createElement('div'); d.className = 'lightbox';
   d.innerHTML = `<img src="${esc(src)}" alt="">`; d.onclick = () => d.remove();
