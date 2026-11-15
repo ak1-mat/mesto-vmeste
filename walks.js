@@ -100,14 +100,16 @@ function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79
 /* ---------- Подбор маршрута ---------- */
 function placeBonus(p) {
   let b = 0;
+  if (p.trend) return 0;                                     // модные места из интернета — без бонусов
   if (isTask(p)) b += 0.6;                                   // задание — за него дадут баллы
   b += Math.min(4, S.reactions.filter(r => r.place_id === p.id).length) * 0.1;
   b += Math.min(4, S.visits.filter(v => v.place_id === p.id).length) * 0.05;
   return b;
 }
-function buildRoute({ start, mood, size, seed, removed = [] }) {
+const wizPool = src => (src === 'trend' && typeof TR !== 'undefined' ? TR.list : S.places);
+function buildRoute({ start, mood, size, seed, removed = [], src }) {
   const cfg = SIZES[size], rand = rng(seed);
-  let pool = S.places.filter(p => !removed.includes(p.id));
+  let pool = wizPool(src).filter(p => !removed.includes(p.id));
   let moodNote = '';
   if (mood !== 'mix') {
     const m = pool.filter(p => p.category === mood);
@@ -152,7 +154,7 @@ function suggestFriends(stops) {
       const p = stops.find(x => x.id === reacted[0].place_id);
       why.push(`${reacted[0].emoji} на «${p.title}»`);
     }
-    const fresh = stops.filter(p => p.author_id !== f.id && !visitOf(p.id, f.id)).length;
+    const fresh = stops.filter(p => !p.trend && p.author_id !== f.id && !visitOf(p.id, f.id)).length;
     if (fresh) { score += fresh; if (!own.length && !reacted.length) why.push(`${fresh} ${fresh === 1 ? 'новое место' : fresh < 5 ? 'новых места' : 'новых мест'} — до +${fresh * PTS.visit} баллов`); }
     score += Math.min(1, (f.points || 0) / 300);
     return { f, score, why: why.join(' · ') || 'давно не гуляли вместе?' };
@@ -195,8 +197,9 @@ function suggestTimes(day, minutes, at) {
 
 /* ---------- Мастер «Собрать прогулку» ---------- */
 let W = null;
-function openWalkWizard() {
-  if (S.places.length < 2) {
+function openWalkWizard(src) {
+  const canTrend = typeof TR !== 'undefined';
+  if (S.places.length < 2 && !canTrend) {
     modal(`<div class="mb"><h2>Собрать прогулку</h2>
       <div class="empty"><span class="ei">🗺️</span><b>Пока мало мест</b>Для маршрута нужно хотя бы 2 места на карте — ваших или друзей. Добавьте места или позовите друзей во вкладке «Друзья».</div></div>`);
     return;
@@ -207,8 +210,21 @@ function openWalkWizard() {
     start: { lat: c.lat, lng: c.lng }, startKind: 'map', mood: 'mix', size: 'mid',
     day: evening ? addDays(1) : addDays(0), seed: Date.now() % 100000, removed: [],
     route: null, picks: null, time: null, title: '', titleTouched: false, note: '',
+    src: src === 'trend' || (canTrend && S.places.length < 2) ? 'trend' : 'friends',
   };
   renderWizard(true);
+  if (W.src === 'trend') wizLoadTrends(false);
+}
+// подгрузить «Новое и модное» и перерисовать мастер, если он ещё открыт
+function wizLoadTrends(refresh) {
+  const w = W;
+  const p = loadTrends(refresh);
+  if (TR.loading) { const st = $('.modal')?.scrollTop; renderWizard(); if ($('.modal')) $('.modal').scrollTop = st || 0; }
+  p.then(() => {
+    if (W !== w || W.src !== 'trend' || !$('#wiz')) return;
+    W.removed = []; recompute(true);
+    const st = $('.modal').scrollTop; renderWizard(); $('.modal').scrollTop = st;
+  });
 }
 function recompute(keepPicks) {
   W.route = buildRoute(W);
@@ -220,19 +236,26 @@ function recompute(keepPicks) {
   if (!W.time || !W.times.some(t => t.time === W.time) && !W.customTime) W.time = (W.times.find(t => /закат/.test(t.label)) || W.times[0])?.time || null;
   if (!W.titleTouched) {
     const names = W.route.stops.map(p => p.title);
-    W.title = ('Прогулка: ' + names.join(' → ')).slice(0, 80);
+    W.title = ((W.src === 'trend' ? '🔥 ' : 'Прогулка: ') + names.join(' → ')).slice(0, 80);
   }
 }
 function renderWizard(fresh) {
   if (fresh) recompute(false);
   const R = W.route;
-  const moods = [['mix', '🎲 Микс'], ...Object.entries(CATS).filter(([k]) => S.places.some(p => p.category === k)).map(([k, c]) => [k, c.e + ' ' + c.n])];
+  const trend = W.src === 'trend', pool = wizPool(W.src);
+  const moods = [['mix', '🎲 Микс'], ...Object.entries(CATS).filter(([k]) => pool.some(p => p.category === k)).map(([k, c]) => [k, c.e + ' ' + c.n])];
+  if (!moods.some(([k]) => k === W.mood)) W.mood = 'mix';
   const days = [['Сегодня', addDays(0)], ['Завтра', addDays(1)], ['В субботу', nextWeekday(6)], ['В воскресенье', nextWeekday(0)]];
   const dayChips = days.filter((x, i, a) => a.findIndex(y => isoDate(y[1]) === isoDate(x[1])) === i);
   const m = modal(`
     <div class="mb" id="wiz">
       <h2>Собрать прогулку</h2>
-      <p class="intro">Выберите настроение и день — маршрут по местам друзей, компания и время встречи подберутся сами.</p>
+      <p class="intro">${trend ? 'ИИ нашёл в интернете и соцсетях места, которые сейчас на хайпе, — выберите настроение, и маршрут соберётся из них.' : 'Выберите настроение и день — маршрут по местам друзей, компания и время встречи подберутся сами.'}</p>
+      ${typeof TR !== 'undefined' ? `<div class="field"><span>Из каких мест</span><div class="seg">
+        <button type="button" class="chip" data-src="friends" aria-pressed="${!trend}">👥 Места друзей</button>
+        <button type="button" class="chip" data-src="trend" aria-pressed="${trend}">🔥 Новое и модное <small>ИИ</small></button>
+      </div>${trend && !TR.loading && TR.list.length ? `<div class="hint">${TR.list.length} ${plural(TR.list.length, 'место', 'места', 'мест')} · ${esc(trendAgo())} · <button type="button" class="linkbtn" data-trefresh>обновить</button></div>` : ''}
+      ${trend && TR.err ? `<div class="hint">⚠️ ${esc(TR.err)}</div>` : ''}</div>` : ''}
       <div class="field"><span>Откуда начнём</span><div class="seg">
         <button type="button" class="chip" data-start="geo" aria-pressed="${W.startKind === 'geo'}">📍 Где я сейчас</button>
         <button type="button" class="chip" data-start="map" aria-pressed="${W.startKind === 'map'}">🗺️ Центр карты</button>
@@ -251,8 +274,9 @@ function renderWizard(fresh) {
           const c = CATS[p.category] || CATS.other;
           return `<li class="ritem"><span class="rnum">${i + 1}</span>
             ${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="">` : `<span class="thumb sm">${c.e}</span>`}
-            <div style="min-width:0"><div class="t">${esc(p.title)}</div>
-              <div class="s">${c.n} · ${esc(nameOf(p.author_id))}${i ? ` · ${fmtKm(R.legs && R.pathKey === pathKey(R.stops) ? R.legs[i - 1] : legKm(R.stops[i - 1], p))} от предыдущего` : ''}${isTask(p) ? ` · <b class="plusb">+${PTS.visit}</b>` : ''}</div></div>
+            <div style="min-width:0"><div class="t">${p.trend ? `<button type="button" class="rname" data-tp="${esc(p.id)}">${esc(p.title)}</button>` : esc(p.title)}</div>
+              ${p.trend && p.why ? `<div class="s">🔥 ${esc(p.why)}</div>` : ''}
+              <div class="s">${c.n} · ${p.trend ? esc(p.source_name || 'нашёл ИИ') : esc(nameOf(p.author_id))}${i ? ` · ${fmtKm(R.legs && R.pathKey === pathKey(R.stops) ? R.legs[i - 1] : legKm(R.stops[i - 1], p))} от предыдущего` : ''}${!p.trend && isTask(p) ? ` · <b class="plusb">+${PTS.visit}</b>` : ''}</div></div>
             <button type="button" class="rx" data-drop="${p.id}" aria-label="Убрать из маршрута" title="Убрать">×</button></li>`;
         }).join('')}</ol>
         <div class="hint">Встречаемся у «${esc(R.stops[0].title)}».</div>
@@ -275,10 +299,25 @@ function renderWizard(fresh) {
         <div class="err" id="werr"></div>
         <button class="cta" type="submit" id="wgo">${W.picks.size ? `Создать и позвать (${W.picks.size})` : 'Создать прогулку'}</button>
       </form>`
+      : trend && TR.loading ? `<div class="empty"><span class="ei">🔥</span><b>ИИ ищет, что сейчас на хайпе…</b>Смотрит свежие подборки, Telegram-каналы и соцсети. Обычно это до минуты — потом подборка сохранится, и дальше всё будет мгновенно.</div>`
+      : trend && !TR.list.length ? `<div class="empty"><b>Пока нет модных мест</b>${esc(TR.err || 'Попробуйте ещё раз чуть позже.')}<br><button type="button" class="cta ghost" data-tretry style="margin-top:10px">Попробовать ещё раз</button></div>`
       : `<div class="empty"><b>Не получилось собрать маршрут</b>Попробуйте другое настроение, длину или старт — или добавьте больше мест.</div>`}
     </div>`);
 
   const reroll = keep => { recompute(keep); const st = m.scrollTop; renderWizard(); $('.modal').scrollTop = st; };
+  m.querySelectorAll('[data-src]').forEach(b => b.onclick = () => {
+    if (W.src === b.dataset.src) return;
+    if (b.dataset.src === 'friends' && S.places.length < 2) return toast('На карте пока мало мест друзей — добавьте места или позовите друзей');
+    W.src = b.dataset.src; W.removed = []; W.titleTouched = false;
+    if (W.src === 'trend' && !TR.list.length) return wizLoadTrends(false);
+    reroll(true);
+  });
+  m.querySelector('[data-trefresh]')?.addEventListener('click', () => wizLoadTrends(true));
+  m.querySelector('[data-tretry]')?.addEventListener('click', () => wizLoadTrends(false));
+  m.querySelectorAll('[data-tp]').forEach(b => b.onclick = () => {
+    const p = W.route?.stops.find(x => String(x.id) === b.dataset.tp);
+    if (p) openTrendPoint(p, () => renderWizard());
+  });
   m.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { W.mood = b.dataset.mood; W.removed = []; reroll(true); });
   m.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { W.size = b.dataset.size; W.removed = []; reroll(true); });
   m.querySelectorAll('[data-day]').forEach(b => b.onclick = () => { W.day = new Date(b.dataset.day + 'T00:00'); W.customTime = false; reroll(true); });
@@ -304,7 +343,7 @@ function renderWizard(fresh) {
   m.querySelector('[data-reroll]').onclick = () => { W.seed = (W.seed * 7919 + 13) % 1000003; W.removed = []; reroll(true); };
   m.querySelectorAll('[data-drop]').forEach(b => b.onclick = () => {
     if (R.stops.length <= 2) return toast('В маршруте должно остаться хотя бы 2 места');
-    const id = Number(b.dataset.drop);
+    const id = /^-?\d+$/.test(b.dataset.drop) ? Number(b.dataset.drop) : b.dataset.drop;
     const stops = R.stops.filter(p => p.id !== id);
     W.route = { ...R, stops, ...routeStats(stops) };
     W.removed.push(id);
@@ -343,7 +382,8 @@ function renderWizard(fresh) {
     const btn = m.querySelector('#wgo'); btn.disabled = true; btn.textContent = 'Создаю…';
     try {
       const R = W.route;
-      const route = R.stops.map(p => ({ id: p.id, title: p.title, lat: p.lat, lng: p.lng, category: p.category, photo_url: p.photo_url || null }));
+      const route = R.stops.map(p => ({ id: p.id, title: p.title, lat: p.lat, lng: p.lng, category: p.category, photo_url: p.photo_url || null,
+        ...(p.trend ? { trend: true, why: p.why || '', address: p.address || '', source_name: p.source_name || '', source_url: p.source_url || '' } : {}) }));
       const ins = await sb.from('plans').insert({
         title, starts_at: starts.toISOString(), note: W.note.trim() || null, route,
         km: Math.round(R.km * 100) / 100, minutes: R.minutes,
@@ -399,7 +439,7 @@ function drawRoute() {
     L.marker([p.lat, p.lng], {
       icon: L.divIcon({ className: '', iconSize: [28, 28], iconAnchor: [14, 14], html: `<div class="rpin">${i + 1}</div>` }),
       zIndexOffset: 1000, title: p.title,
-    }).on('click', () => { if (S.places.some(x => x.id === p.id)) openPlace(p.id); else if (typeof CUR !== 'undefined' && CUR.byId.has(p.id)) openCurated(p.id); else toast(p.title); }).addTo(routeLayer);
+    }).on('click', () => { if (S.places.some(x => x.id === p.id)) openPlace(p.id); else if (typeof CUR !== 'undefined' && CUR.byId.has(p.id)) openCurated(p.id); else if (p.trend && typeof openTrendPoint === 'function') openTrendPoint(p); else toast(p.title); }).addTo(routeLayer);
   });
   map.fitBounds(L.latLngBounds(pts).pad(0.25), { maxZoom: 16 });
   if (bar) {
@@ -451,7 +491,7 @@ function openWalk(id) {
       <div class="sec">Маршрут <span class="n">${pl.route.length}</span></div>
       ${ch ? `<div class="wchange">✏️ ${ch}</div>` : ''}
       <ol class="rlist">${pl.route.map((p, i) => {
-        const c = CATS[p.category] || CATS.other, vis = S.places.some(x => x.id === p.id) || (typeof CUR !== 'undefined' && CUR.byId.has(p.id));
+        const c = CATS[p.category] || CATS.other, vis = S.places.some(x => x.id === p.id) || (typeof CUR !== 'undefined' && CUR.byId.has(p.id)) || (p.trend && typeof openTrendPoint === 'function');
         const by = p.added_by && p.added_by !== pl.author_id ? p.added_by : null;
         const canDel = pl.route.length > 1 && (mine || (by && by === S.user.id));
         return `<li class="ritem${by ? ' added' : ''}"><span class="rnum">${i + 1}</span>
@@ -484,7 +524,11 @@ function openWalk(id) {
   m.querySelector('[data-addpt]')?.addEventListener('click', () => openAddToWalk(pl.id));
   m.querySelector('[data-reorder]')?.addEventListener('click', () => reorderWalk(pl.id));
   m.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePointFromWalk(pl.id, b.dataset.del));
-  m.querySelectorAll('[data-op]').forEach(b => b.onclick = () => { const id = b.dataset.op; if (/^m-/.test(id)) openCurated(id); else openPlace(Number(id)); });
+  m.querySelectorAll('[data-op]').forEach(b => b.onclick = () => {
+    const id = b.dataset.op;
+    if (/^t-/.test(id)) { const p = pl.route.find(x => String(x.id) === id); if (p) openTrendPoint(p, () => openWalk(pl.id)); return; }
+    if (/^m-/.test(id)) openCurated(id); else openPlace(Number(id));
+  });
   m.querySelectorAll('[data-ans]').forEach(b => b.onclick = async () => {
     const { error } = await sb.from('plan_members').update({ status: b.dataset.ans, updated_at: new Date().toISOString() })
       .match({ plan_id: pl.id, user_id: S.user.id });
@@ -697,12 +741,14 @@ function renderWalks(body) {
     <div class="wcta">
       <button type="button" class="cta" id="newWalk">🚶 Прогулка с друзьями</button>
       <button type="button" class="cta ghost" id="newDay">🧭 Маршрут по городу на день</button>
+      ${typeof TR !== 'undefined' ? '<button type="button" class="cta ghost" id="newTrend">🔥 Маршрут по модным местам <small>ИИ</small></button>' : ''}
     </div>
     ${invites.length ? sec('Вас зовут', invites.length) + invites.map(walkCard).join('') : ''}
     ${sec('Ближайшие', rest.length)}
     ${rest.length ? rest.map(walkCard).join('') : '<div class="empty"><span class="ei">🌇</span><b>Пока ничего не запланировано</b>Соберите прогулку — друзья получат приглашение здесь же.</div>'}
     ${past.length ? sec('Прошедшие') + past.map(p => walkCard(p, true)).join('') : ''}`;
-  body.querySelector('#newWalk').onclick = openWalkWizard;
+  body.querySelector('#newWalk').onclick = () => openWalkWizard();
+  body.querySelector('#newTrend')?.addEventListener('click', () => openWalkWizard('trend'));
   body.querySelector('#newDay').onclick = () => (typeof openDayPlanner === 'function' ? openDayPlanner() : null);
   body.querySelectorAll('[data-walk]').forEach(b => b.onclick = () => openWalk(Number(b.dataset.walk)));
 }
