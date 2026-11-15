@@ -670,7 +670,8 @@ async function showDayRoute() {
     const line = L.polyline([[pts[i - 1].lat, pts[i - 1].lng], [pts[i].lat, pts[i].lng]], how === 'walk'
       ? { color: col, weight: 5, opacity: 0.9, lineCap: 'round' }
       : { color: col, weight: 4, opacity: 0.75, dashArray: '2 9', lineCap: 'round' }).addTo(dayLayer);
-    legs.push({ how, line, a: pts[i - 1], b: pts[i] });
+    const lime = how === 'walk' ? L.polyline([[pts[i - 1].lat, pts[i - 1].lng], [pts[i].lat, pts[i].lng]], { color: '#C8F542', weight: 2, opacity: 1, dashArray: '8 10', lineCap: 'round' }).addTo(dayLayer) : null;
+    legs.push({ how, line, lime, a: pts[i - 1], b: pts[i] });
   }
   D.plan.route.forEach((p, i) => L.marker([p.lat, p.lng], {
     icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: `<div class="rpin">${i + 1}</div>` }), zIndexOffset: 1200, title: p.name,
@@ -687,7 +688,7 @@ async function showDayRoute() {
   bar.querySelector('#rbDayX').onclick = () => { dayLayer.clearLayers(); bar.hidden = true; map.getContainer().classList.remove('routing'); };
   // Пешие отрезки — по улицам
   for (const l of legs) if (l.how === 'walk') {
-    fetchFootPath([l.a, l.b]).then(fp => { if (fp && dayLayer.hasLayer(l.line)) l.line.setLatLngs(fp.path); });
+    fetchFootPath([l.a, l.b]).then(fp => { if (fp && dayLayer.hasLayer(l.line)) { l.line.setLatLngs(fp.path); l.lime?.setLatLngs(fp.path); } });
   }
 }
 
