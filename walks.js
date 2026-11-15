@@ -100,7 +100,7 @@ function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79
 /* ---------- Подбор маршрута ---------- */
 function placeBonus(p) {
   let b = 0;
-  if (p.trend) return 0;                                     // модные места из интернета — без бонусов
+  if (p.trend) return 0;                                     // трендовые места из интернета — без бонусов
   if (isTask(p)) b += 0.6;                                   // задание — за него дадут баллы
   b += Math.min(4, S.reactions.filter(r => r.place_id === p.id).length) * 0.1;
   b += Math.min(4, S.visits.filter(v => v.place_id === p.id).length) * 0.05;
@@ -215,7 +215,7 @@ function openWalkWizard(src) {
   renderWizard(true);
   if (W.src === 'trend') wizLoadTrends(false);
 }
-// подгрузить «Новое и модное» и перерисовать мастер, если он ещё открыт
+// подгрузить «Трендовые места» и перерисовать мастер, если он ещё открыт
 function wizLoadTrends(refresh) {
   const w = W;
   const p = loadTrends(refresh);
@@ -253,7 +253,7 @@ function renderWizard(fresh) {
       <p class="intro">${trend ? 'ИИ нашёл в интернете и соцсетях места, которые сейчас на хайпе, — выберите настроение, и маршрут соберётся из них.' : 'Выберите настроение и день — маршрут по местам друзей, компания и время встречи подберутся сами.'}</p>
       ${typeof TR !== 'undefined' ? `<div class="field"><span>Из каких мест</span><div class="seg">
         <button type="button" class="chip" data-src="friends" aria-pressed="${!trend}">👥 Места друзей</button>
-        <button type="button" class="chip" data-src="trend" aria-pressed="${trend}">🔥 Новое и модное <small>ИИ</small></button>
+        <button type="button" class="chip" data-src="trend" aria-pressed="${trend}">🔥 Трендовые места <small>ИИ</small></button>
       </div>${trend && !TR.loading && TR.list.length ? `<div class="hint">${TR.list.length} ${plural(TR.list.length, 'место', 'места', 'мест')} · ${esc(trendAgo())} · <button type="button" class="linkbtn" data-trefresh>обновить</button></div>` : ''}
       ${trend && TR.err ? `<div class="hint">⚠️ ${esc(TR.err)}</div>` : ''}</div>` : ''}
       <div class="field"><span>Откуда начнём</span><div class="seg">
@@ -300,7 +300,7 @@ function renderWizard(fresh) {
         <button class="cta" type="submit" id="wgo">${W.picks.size ? `Создать и позвать (${W.picks.size})` : 'Создать прогулку'}</button>
       </form>`
       : trend && TR.loading ? `<div class="empty"><span class="ei">🔥</span><b>ИИ ищет, что сейчас на хайпе…</b>Смотрит свежие подборки, Telegram-каналы и соцсети. Обычно это до минуты — потом подборка сохранится, и дальше всё будет мгновенно.</div>`
-      : trend && !TR.list.length ? `<div class="empty"><b>Пока нет модных мест</b>${esc(TR.err || 'Попробуйте ещё раз чуть позже.')}<br><button type="button" class="cta ghost" data-tretry style="margin-top:10px">Попробовать ещё раз</button></div>`
+      : trend && !TR.list.length ? `<div class="empty"><b>Пока нет трендовых мест</b>${esc(TR.err || 'Попробуйте ещё раз чуть позже.')}<br><button type="button" class="cta ghost" data-tretry style="margin-top:10px">Попробовать ещё раз</button></div>`
       : `<div class="empty"><b>Не получилось собрать маршрут</b>Попробуйте другое настроение, длину или старт — или добавьте больше мест.</div>`}
     </div>`);
 
@@ -741,7 +741,7 @@ function renderWalks(body) {
     <div class="wcta">
       <button type="button" class="cta" id="newWalk">🚶 Прогулка с друзьями</button>
       <button type="button" class="cta ghost" id="newDay">🧭 Маршрут по городу на день</button>
-      ${typeof TR !== 'undefined' ? '<button type="button" class="cta ghost" id="newTrend">🔥 Маршрут по модным местам <small>ИИ</small></button>' : ''}
+      ${typeof TR !== 'undefined' ? '<button type="button" class="cta ghost" id="newTrend">🔥 Маршрут по трендовым местам <small>ИИ</small></button>' : ''}
     </div>
     ${invites.length ? sec('Вас зовут', invites.length) + invites.map(walkCard).join('') : ''}
     ${sec('Ближайшие', rest.length)}
