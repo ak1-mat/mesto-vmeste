@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="style.css?v=20261114a">
+<link rel="stylesheet" href="style.css?v=20261116a">
 </head>
 <body data-view="tasks">
 
@@ -200,7 +200,7 @@
   </header>
 
   <main class="layout">
-    <div class="mapwrap">
+    <div class="mapwrap" id="mapwrapEl">
       <div id="map" aria-label="Карта мест"></div>
       <div class="maploader" id="mapLoader" aria-hidden="true"><div class="ml-pins"><i></i><i></i><i></i></div><b>Загружаем карту…</b></div>
       <div class="maptools" id="filters"></div>
@@ -219,6 +219,7 @@
       <button class="locbtn" id="locBtn" type="button" aria-label="Показать, где я" title="Где я">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
       </button>
+      <div class="peek" id="peek" role="dialog" aria-label="Место" hidden></div>
       <button class="fab" id="fab" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         Добавить место
@@ -255,13 +256,13 @@
   // Запасной адрес, если jsdelivr недоступен
   if (!window.supabase) document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
 </script>
-<script src="config.js?v=20261114a"></script>
-<script src="tg.js?v=20261114a"></script>
-<script src="ymap.js?v=20261114a"></script>
-<script src="app.js?v=20261114a"></script>
-<script src="walks.js?v=20261114a"></script>
-<script src="curated.js?v=20261114a"></script>
-<script src="demo.js?v=20261114a"></script>
-<script src="fx.js?v=20261114a"></script>
+<script src="config.js?v=20261116a"></script>
+<script src="tg.js?v=20261116a"></script>
+<script src="ymap.js?v=20261116a"></script>
+<script src="app.js?v=20261116a"></script>
+<script src="walks.js?v=20261116a"></script>
+<script src="curated.js?v=20261116a"></script>
+<script src="demo.js?v=20261116a"></script>
+<script src="fx.js?v=20261116a"></script>
 </body>
 </html>
