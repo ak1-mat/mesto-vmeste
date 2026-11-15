@@ -102,7 +102,8 @@
       super();
       this.g = new ymaps.Polyline(pts.map(arr), {}, {
         strokeColor: o.color || '#5B3DF5', strokeWidth: o.weight || 4, strokeOpacity: o.opacity ?? 1,
-        strokeStyle: o.dashArray ? 'dot' : 'solid', zIndex: 200, interactivityModel: 'default#transparent',
+        // короткий штрих ('2 10') — точки, длинный ('8 10') — пунктир как на логотипе
+        strokeStyle: !o.dashArray ? 'solid' : parseFloat(o.dashArray) >= 6 ? 'dash' : 'dot', zIndex: 200, interactivityModel: 'default#transparent',
       });
     }
     setLatLngs(pts) { this.g.geometry.setCoordinates(pts.map(arr)); return this; }
