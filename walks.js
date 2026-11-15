@@ -389,6 +389,8 @@ function drawRoute() {
   L.polyline(line, { color: '#ffffff', weight: street ? 8 : 9, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
   L.polyline(line, street ? { color: routeColor(), weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }
     : { color: routeColor(), weight: 5, dashArray: '2 10', lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+  // поверх — лаймовый пунктир, как на логотипе «Маршрут»
+  if (street) L.polyline(line, { color: '#C8F542', weight: 2.5, opacity: 1, dashArray: '8 10', lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
   if (!street) {
     const id = pl.id;
     fetchFootPath(pl.route).then(fp => { if (fp && S.routePlan === id) drawRoute(); });
