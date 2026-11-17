@@ -239,6 +239,11 @@
       this.items = new Set(); this._ev = [];
       this.zoomControl = { setPosition() {} };
       if (window.ResizeObserver) new ResizeObserver(() => this.m.invalidateSize()).observe(this.el);
+      // Щипок двумя пальцами должен масштабировать карту, а не всю страницу (иначе в Telegram и Safari
+      // после зума страница остаётся увеличенной и метки становятся огромными)
+      const stop = e => e.preventDefault();
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => this.el.addEventListener(t, stop));
+      this.el.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     }
     _add(o) { o._parent = this; this.items.add(o); o._mount(this); }
     _del(o) { this.items.delete(o); o._unmount(); o._parent = null; }

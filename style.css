@@ -1139,7 +1139,7 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
 
 /* ---------- Карта 2ГИС (17.11) ---------- */
 /* фильтры на холст не ставим: на нём же рисуются маршруты и кружки мест, их цвета должны остаться */
-.gmap{background:var(--sunk)}
+.gmap{background:var(--sunk);touch-action:none;-webkit-user-select:none;user-select:none}
 
 /* ---------- Неоновый город (17.11) ---------- */
 .medot .rider{display:none}
