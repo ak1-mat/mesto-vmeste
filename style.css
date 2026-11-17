@@ -1136,3 +1136,7 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
 @media (max-width:860px){ .peek{bottom:12px} .ymaps .peek{bottom:30px} }
 @media (prefers-reduced-motion:reduce){ .peek{animation:none} .pin{transition:none} }
 @media (min-width:861px){ .peek{left:auto;right:14px;width:400px} }
+
+/* ---------- Карта 2ГИС (17.11) ---------- */
+/* фильтры на холст не ставим: на нём же рисуются маршруты и кружки мест, их цвета должны остаться */
+.gmap{background:var(--sunk)}
