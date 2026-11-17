@@ -435,6 +435,8 @@ function openLayers() {
   const m = modal(`
     <div class="mb layers">
       <h2>Что показать на карте</h2>
+      ${map && map.setNeon ? `<div class="sec">Вид карты</div>
+      <button type="button" class="lsw" id="lyNeon" aria-pressed="${!!S.neon}"><span><b>Неоновый город</b><small>Неоновые цвета, пальмы вместо деревьев, наклон карты и мотоциклист вместо точки «я здесь»</small></span><span class="sw2" aria-hidden="true"></span></button>` : ''}
       ${hasCur ? `<div class="sec">Подборка «${esc(curTitle())}»</div>
       <button type="button" class="lsw" id="lyCur" aria-pressed="${CUR.on}"><span><b>Показывать подборку</b><small>Где поесть, что посмотреть, где погулять и снять фото</small></span><span class="sw2" aria-hidden="true"></span></button>
       ${CUR.on ? `<div class="lgrid">${Object.entries(CUR_CATS).map(([k, c]) => `<button type="button" class="lopt lcat" data-c="${k}" aria-pressed="${CUR.cats.has(k)}" style="--c:${c.c}"><span class="dot"></span>${c.e} ${c.n}<small>${curCount(k)}</small></button>`).join('')}</div>
@@ -445,6 +447,7 @@ function openLayers() {
     </div>`);
   const again = () => { const top = $('.modal')?.scrollTop || 0; openLayers(); const md = $('.modal'); if (md) md.scrollTop = top; };
   m.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { S.filter = b.dataset.f; renderFilters(); renderMap(true); again(); });
+  m.querySelector('#lyNeon')?.addEventListener('click', () => { setNeon(!S.neon); again(); });
   m.querySelector('#lyCur')?.addEventListener('click', () => { CUR.on = !CUR.on; store.set('mv_cur_on', CUR.on ? '1' : '0'); renderCuratedControl(); renderCuratedLayer(); layersSummary(); again(); });
   m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
     const k = b.dataset.c;
@@ -456,6 +459,17 @@ function openLayers() {
   m.querySelector('#lyDone').onclick = closeModal;
 }
 $('#layersBtn').onclick = openLayers;
+// Неоновый город (только на карте 2ГИС). Выбор запоминается на этом устройстве
+function setNeon(on, quiet) {
+  if (!map || !map.setNeon) return;
+  S.neon = !!on; store.set('mv_neon', on ? '1' : '0');
+  document.body.classList.toggle('neon', S.neon);
+  map.setNeon(S.neon).catch(e => {
+    console.error('neon', e);
+    S.neon = false; store.set('mv_neon', '0'); document.body.classList.remove('neon');
+    if (!quiet) toast('Неоновый город сейчас не загрузился, попробуйте позже');
+  });
+}
 
 /* Добавление места */
 function startAdding() {
@@ -474,6 +488,16 @@ $('#fab').onclick = startAdding;
    1-е нажатие — найти меня и следить (карта едет за точкой); сдвинули карту пальцем — слежение
    выключается, точка остаётся; ещё нажатие — снова к себе. Когда вкладка скрыта, GPS отключается. */
 const GEO = { watch: null, follow: false, last: null, dot: null, ring: null, wanted: false, centered: false };
+// В неоновом режиме вместо точки едет мотоциклист (свой рисунок «Места вместе»), он поворачивается по ходу движения
+const RIDER = '<svg class="rider" aria-hidden="true" viewBox="0 0 48 64"><defs><radialGradient id="mvRg" cx="50%" cy="55%" r="50%"><stop offset="0" stop-color="#ff3d9a" stop-opacity=".55"/><stop offset="1" stop-color="#ff3d9a" stop-opacity="0"/></radialGradient><linearGradient id="mvRb" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#C8F542" stop-opacity=".7"/><stop offset="1" stop-color="#C8F542" stop-opacity="0"/></linearGradient></defs><ellipse cx="24" cy="36" rx="22" ry="26" fill="url(#mvRg)"/><path d="M20 9 L14 -2 L34 -2 L28 9 Z" fill="url(#mvRb)"/><rect x="20.5" y="6" width="7" height="14" rx="3.5" fill="#1d1533"/><rect x="20.5" y="45" width="7" height="16" rx="3.5" fill="#1d1533"/><path d="M19 16 Q24 11 29 16 L30 47 Q24 52 18 47 Z" fill="#ff3d9a"/><rect x="21.5" y="13" width="5" height="3" rx="1.5" fill="#fff6c2"/><rect x="9" y="18" width="30" height="3.2" rx="1.6" fill="#2a2145"/><path d="M14 33 Q12 25 11 20 M34 33 Q36 25 37 20" stroke="#5B3DF5" stroke-width="4.2" stroke-linecap="round" fill="none"/><ellipse cx="24" cy="36" rx="11" ry="8.5" fill="#5B3DF5"/><path d="M17 34 Q24 39 31 34" stroke="#8f7bff" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="24" cy="29" r="6.2" fill="#C8F542"/><path d="M18.6 27.5 Q24 21 29.4 27.5 Q24 25.4 18.6 27.5 Z" fill="#1d1533"/><rect x="22" y="57" width="4" height="2.6" rx="1.2" fill="#ff5252"/></svg>';
+function geoHeading(p, ll) {
+  const c = p.coords, prev = GEO.last;
+  if (c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 0.7) return c.heading;
+  if (!prev) return null;
+  const dy = ll[0] - prev.lat, dx = (ll[1] - prev.lng) * Math.cos(ll[0] * Math.PI / 180);
+  if (Math.hypot(dx, dy) * 111320 < 4) return null;   // стоим на месте или GPS дрожит
+  return (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+}
 function geoBtn() {
   const b = $('#locBtn'); if (!b) return;
   b.classList.toggle('on', !!GEO.last); b.classList.toggle('follow', GEO.follow);
@@ -481,13 +505,16 @@ function geoBtn() {
 }
 function geoDraw(p) {
   const ll = [p.coords.latitude, p.coords.longitude], acc = Math.round(p.coords.accuracy || 0);
+  const hd = geoHeading(p, ll);
+  if (hd != null) GEO.hd = hd;
   GEO.last = { lat: ll[0], lng: ll[1], acc, t: Date.now() };
   $('#locBtn')?.classList.remove('busy');
   const r = Math.min(Math.max(acc, 5), 3000);
   if (!GEO.dot) {
     GEO.ring = L.circle(ll, { radius: r, color: '#5B3DF5', weight: 1, opacity: 0.35, fillColor: '#5B3DF5', fillOpacity: 0.1, interactive: false }).addTo(map);
-    GEO.dot = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: '<div class="medot"></div>' }), interactive: false, zIndexOffset: 1000, title: '' }).addTo(map);
+    GEO.dot = L.marker(ll, { icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 11], html: '<div class="medot">' + RIDER + '</div>' }), interactive: false, zIndexOffset: 1000, title: '' }).addTo(map);
   } else { GEO.dot.setLatLng(ll); GEO.ring.setLatLng(ll); GEO.ring.setRadius(r); }
+  if (GEO.hd != null) document.querySelectorAll('.medot').forEach(d => d.style.setProperty('--hd', GEO.hd + 'deg'));
   if (GEO.follow) {
     if (!GEO.centered) { GEO.centered = true; map.setView(ll, Math.max(map.getZoom(), acc > 500 ? 14 : 16)); }
     else map.panTo(ll);
@@ -1120,7 +1147,7 @@ async function start(session) {
   started = started || (async () => {
     const eng = window.MAP_READY ? await window.MAP_READY : 'leaflet';
     if (eng === '2gis' && window.GL2) {
-      try { window.LEAFLET = window.L; window.L = window.GL2; document.body.classList.add('ymaps', 'gmaps'); initMap(); return; }
+      try { window.LEAFLET = window.L; window.L = window.GL2; document.body.classList.add('ymaps', 'gmaps'); initMap(); if (store.get('mv_neon') === '1') setNeon(true, true); return; }
       catch (e) { console.error('2gis', e); window.L = window.LEAFLET; document.body.classList.remove('ymaps', 'gmaps'); $('#map').innerHTML = ''; $('#map').className = ''; }
     }
     initMap();

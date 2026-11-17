@@ -1140,3 +1140,10 @@ h1,h2,h3,.ptitle{letter-spacing:-.02em}
 /* ---------- Карта 2ГИС (17.11) ---------- */
 /* фильтры на холст не ставим: на нём же рисуются маршруты и кружки мест, их цвета должны остаться */
 .gmap{background:var(--sunk)}
+
+/* ---------- Неоновый город (17.11) ---------- */
+.medot .rider{display:none}
+.neon .medot{width:22px;height:22px;background:none;border:0;box-shadow:none}
+.neon .medot::after{display:none}
+.neon .medot .rider{display:block;position:absolute;left:50%;top:50%;width:46px;height:62px;margin:-34px 0 0 -23px;transform:rotate(var(--hd,0deg));transform-origin:50% 55%;transition:transform .6s ease;filter:drop-shadow(0 2px 4px rgba(40,10,80,.45))}
+@media (prefers-reduced-motion:reduce){ .neon .medot .rider{transition:none} }

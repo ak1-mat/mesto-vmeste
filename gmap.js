@@ -144,6 +144,82 @@
     hasLayer(o) { return this.items.has(o); }
   }
 
+  /* ---------- Неоновый режим ----------
+     Берём стандартный стиль 2ГИС, перекрашиваем его в неоновые цвета и меняем деревья на пальмы.
+     Стиль собирается в браузере, поэтому всегда остаётся свежим и не хранится в репозитории. */
+  const DGIS_STYLE = 'c080bb6a-8134-4993-93a1-5b4d8c36a59b';
+  const ASSETS = 'https://disk.2gis.com/styles/assets/';
+  const PALM = 'tree_palm_lush_crown_tall_d', PALM_FAR = 'lodpalmsummercomb';
+
+  function parseColor(s) {
+    let m = /^#([0-9a-f]{3,8})$/i.exec(s);
+    if (m) {
+      let h = m[1]; if (h.length <= 4) h = h.replace(/./g, c => c + c);
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16), h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1];
+    }
+    m = /^rgba?\(([^)]+)\)$/i.exec(s);
+    if (m) { const p = m[1].split(',').map(Number); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; }
+    return null;
+  }
+  function hsl2hex(h, s, l, a) {
+    h = ((h % 360) + 360) % 360;
+    const k = n => (n + h / 30) % 12, f = n => l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    const x = v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0');
+    return '#' + x(f(0)) + x(f(8)) + x(f(4)) + (a < 1 ? x(a) : '');
+  }
+  // Один цвет обычной карты -> неоновый. Светлые фоны и дома - розово-сиреневые, вода - сине-фиолетовая,
+  // парки - бирюзово-зелёные, жёлтые и оранжевые дороги - фиолетовые, тёмный текст - тёмно-фиолетовый.
+  function neonColor(str) {
+    const c = parseColor(str); if (!c) return str;
+    const [r, g, b, a] = c.map((v, i) => i < 3 ? v / 255 : v);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, ch = max - min;
+    let h = 0;
+    if (ch) h = max === r ? 60 * (((g - b) / ch) % 6) : max === g ? 60 * ((b - r) / ch + 2) : 60 * ((r - g) / ch + 4);
+    h = (h + 360) % 360;
+    if (ch < 0.12) {                                  // серые, белые, бежевые
+      if (l > 0.8) return hsl2hex(318 - (l - 0.8) * 60, 0.62, 0.72 + (l - 0.8) * 0.6, a);   // фон и дома: розовые
+      if (l > 0.4) return hsl2hex(285, 0.32, l * 0.85, a);                                  // дороги, контуры: сиреневые
+      return hsl2hex(268, 0.45, Math.max(l, 0.12), a);                                     // текст: тёмно-фиолетовый
+    }
+    if (h >= 170 && h < 255) return hsl2hex(238, 0.72, Math.min(0.58, l * 0.8), a);       // вода
+    if (h >= 65 && h < 170) return hsl2hex(158, 0.42, l * 0.72, a);                         // парки, леса
+    if (h >= 20 && h < 65) return hsl2hex(292, 0.68, Math.min(0.66, Math.max(0.45, l * 0.8)), a); // жёлтые дороги
+    return hsl2hex(h < 20 || h >= 330 ? 335 : h, Math.min(1, 0.75), l, a);                // красное и розовое - ярче
+  }
+  const COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([^)]*\))$/i;
+  function recolor(v) {
+    if (typeof v === 'string') return COLOR_RE.test(v) ? neonColor(v) : v;
+    if (Array.isArray(v)) return v.map(recolor);
+    if (v && typeof v === 'object') { const o = {}; for (const k in v) o[k] = k === 'modelSrc' || k === 'iconImage' ? v[k] : recolor(v[k]); return o; }
+    return v;
+  }
+  // деревья -> пальмы: каждый слой моделей деревьев рисует пальму (вблизи - подробную, вдали - упрощённую)
+  function palms(layers) {
+    for (const l of layers) {
+      if (l.layers) palms(l.layers);
+      if (l.type !== 'model' || !l.style) continue;
+      const f = JSON.stringify(l.filter || '') + ' ' + JSON.stringify(l.style.modelSrc || '') + ' ' + (l.name || '');
+      if (/palm/i.test(f)) continue;
+      if (/tree|pine|berez|sosna|listv|tuya|forest|лес|дерев|bush|porosl/i.test(f))
+        l.style.modelSrc = ['step', ['distance'], PALM, 530, PALM_FAR];
+    }
+  }
+  let neonUrl = null;
+  async function neonStyleUrl(key) {
+    if (neonUrl) return neonUrl;
+    const res = await fetch(`https://styles.api.2gis.com/styles/${DGIS_STYLE}?key=${encodeURIComponent(key)}`).then(r => r.json());
+    const st = res.result || res;
+    st.layers = recolor(st.layers); palms(st.layers);
+    if (st.background) st.background = recolor(st.background);
+    // небо на горизонте - закат: розовый к оранжевому, дымка - розовая
+    st.environment = Object.assign({}, st.environment, {
+      skyColor: ['interpolate', ['linear'], ['zoom'], 7, '#2a1450', 8, '#ff7a9c'],
+      fogColor: ['interpolate', ['linear'], ['zoom'], 7, '#5b2a8a', 8, '#ffb3c9'],
+    });
+    neonUrl = URL.createObjectURL(new Blob([JSON.stringify(st)], { type: 'application/json' }));
+    return neonUrl;
+  }
+
   /* ---------- Карта ---------- */
   const EV = { click: 'click', moveend: 'moveend', zoomend: 'zoomend' };
   class GMap {
@@ -159,6 +235,7 @@
         disableRotationByUserInteraction: true, disablePitchByUserInteraction: true,
         lang: 'ru',
       });
+      this._world();
       this.items = new Set(); this._ev = [];
       this.zoomControl = { setPosition() {} };
       if (window.ResizeObserver) new ResizeObserver(() => this.m.invalidateSize()).observe(this.el);
@@ -185,6 +262,32 @@
     getSize() { return { x: this.el.clientWidth, y: this.el.clientHeight }; }
     getContainer() { return this.el; }
     invalidateSize() { this.m.invalidateSize(); return this; }
+    // ширина мира в пикселях при текущем зуме; меряем, пока карта не наклонена (с наклоном границы искажены)
+    _world() {
+      const W = Math.max(this.el.clientWidth, 100), cur = this.m.getZoom();
+      try {
+        if (this.m.getPitch() < 1 && this.el.clientWidth > 50) {
+          const bnd = this.m.getBounds(), span = Math.abs(bnd.northEast[0] - bnd.southWest[0]);
+          if (span > 0 && span < 360) this._c = W / (span / 360) / Math.pow(2, cur);
+        }
+      } catch (e) { /* карта ещё не готова */ }
+      return (this._c || 512) * Math.pow(2, cur);
+    }
+    // Неоновый город: свой стиль, пальмы и наклон карты. Возвращает Promise
+    async setNeon(on) {
+      this._world();
+      const a = { duration: 400 };
+      if (on) {
+        const url = await neonStyleUrl((window.MESTO_CONFIG || {}).DGIS_KEY);
+        await this.m.setStyleFromUrl(url, { stylePath: '', iconsPath: ASSETS + 'icons', fontsPath: 'https://mapgl.2gis.com/api/fonts', modelsPath: ASSETS + 'models' });
+        this.m.setPitch(40, a);
+      } else {
+        await this.m.setStyleById(DGIS_STYLE);
+        this.m.setPitch(0, a);
+      }
+      this.el.classList.toggle('neonmap', !!on);
+      return on;
+    }
     // Масштаб считаем сами по проекции Меркатора: так результат не зависит от тонкостей fitBounds в API
     fitBounds(b, o = {}) {
       if (!(b instanceof GBounds)) b = new GBounds(b);
@@ -193,10 +296,7 @@
       if (b.s === b.n && b.w === b.e) return this.setView([b.s, b.w], Math.min(max, 15), o);
       const y = lat => { const s = Math.sin(lat * Math.PI / 180); return Math.log((1 + s) / (1 - s)) / 2; };
       const W = Math.max(this.el.clientWidth, 100), H = Math.max(this.el.clientHeight, 100);
-      // ширина мира в пикселях при текущем зуме - по двум точкам экрана
-      const cur = this.m.getZoom(), bnd = this.m.getBounds();
-      const spanLng = Math.abs(bnd.northEast[0] - bnd.southWest[0]) || 1e-6;
-      const worldNow = W / (spanLng / 360);
+      const cur = this.m.getZoom(), worldNow = this._world();
       const fx = (b.e - b.w) / 360, fy = Math.abs(y(b.n) - y(b.s)) / (2 * Math.PI);
       const k = Math.min(W / (fx * worldNow || 1e-9), H / (fy * worldNow || 1e-9));
       const z = Math.max(3, Math.min(max, cur + Math.log2(k)));
